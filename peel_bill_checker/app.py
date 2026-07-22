@@ -73,7 +73,7 @@ def load_bill():
 
 def check_bill():
 
-    if not EMAIL or not PASSWORD:
+    if not PEEL_EMAIL or not PEEL_PASSWORD:
         print("Missing Peel credentials")
         return
 
@@ -97,12 +97,12 @@ def check_bill():
 
         page.fill(
             "#bannerSignInUsername",
-            EMAIL
+            PEEL_EMAIL
         )
 
         page.fill(
             "#bannerSignInPassword",
-            PASSWORD
+            PEEL_PASSWORD
         )
 
 
