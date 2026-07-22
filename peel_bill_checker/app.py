@@ -1,4 +1,4 @@
-print("VERSION TEST 1.0.8")
+print("VERSION TEST 1.0.9")
 
 import os
 import re
@@ -40,15 +40,13 @@ def notify(message):
         print("No HA token")
         return
 
-    headers = {
-        "Authorization": f"Bearer {HA_TOKEN}",
-        "Content-Type": "application/json",
-    }
-
     try:
         requests.post(
             f"{HA_URL}/services/notify/mobile_app_atg",
-            headers=headers,
+            headers={
+                "Authorization": f"Bearer {HA_TOKEN}",
+                "Content-Type": "application/json",
+            },
             json={
                 "title": "💧 Peel Water Bill",
                 "message": message
@@ -62,10 +60,12 @@ def notify(message):
         print("Notification error:", e)
 
 
+
 def save_bill(data):
 
     with open(LAST_FILE, "w") as f:
         json.dump(data, f)
+
 
 
 def load_bill():
@@ -76,6 +76,7 @@ def load_bill():
 
     except:
         return None
+
 
 
 def check_bill():
@@ -100,6 +101,7 @@ def check_bill():
 
             print("Opening Peel login")
 
+
             page.goto(
                 PEEL_LOGIN,
                 wait_until="domcontentloaded",
@@ -114,6 +116,7 @@ def check_bill():
                 "#bannerSignInUsername",
                 timeout=30000
             )
+
 
             print("Login form found")
 
@@ -153,37 +156,84 @@ def check_bill():
             print("Opening bills page")
 
 
-           page.goto(
-    PEEL_BILLS,
-    wait_until="domcontentloaded",
-    timeout=60000
-)
-
-print("Bills page loaded")
-
-print("Current URL:", page.url)
-
-html = page.content()
-
-with open("/data/peel_debug.html", "w", encoding="utf-8") as f:
-    f.write(html)
-
-print("Saved HTML dump")
-
-print(page.title())
-
-print(page.locator("body").inner_text()[:2000])
+            page.goto(
+                PEEL_BILLS,
+                wait_until="domcontentloaded",
+                timeout=60000
+            )
 
 
-            bill = page.locator(
+            print("Bills page loaded")
+
+
+            print(
+                "Current URL:",
+                page.url
+            )
+
+
+            # Save page for inspection
+            html = page.content()
+
+            with open(
+                "/data/peel_debug.html",
+                "w",
+                encoding="utf-8"
+            ) as f:
+                f.write(html)
+
+
+            print("Saved HTML dump")
+
+
+            print(
+                "Page title:",
+                page.title()
+            )
+
+
+            body = page.locator("body").inner_text()
+
+            print(
+                body[:2000]
+            )
+
+
+            print("Searching bills")
+
+
+            bills = page.locator(
                 "#main_BillContainer .table-grid-item"
-            ).first
+            )
 
 
-            text = bill.inner_text()
+            count = bills.count()
 
-            print("Bill text:")
+
+            print(
+                "Bill count:",
+                count
+            )
+
+
+            if count == 0:
+
+                print(
+                    "No bill containers found"
+                )
+
+                return
+
+
+            text = bills.first.inner_text()
+
+
+            print(
+                "Bill text:"
+            )
+
             print(text)
+
 
 
             amount = re.search(
@@ -204,33 +254,51 @@ print(page.locator("body").inner_text()[:2000])
             )
 
 
+
             if not amount:
-                print("Amount not found")
+
+                print(
+                    "Amount not found"
+                )
+
                 return
+
 
 
             data = {
 
-                "amount": "$" + amount.group(1),
+                "amount":
+                    "$" + amount.group(1),
 
-                "due": due.group(1)
-                if due else "",
+                "due":
+                    due.group(1)
+                    if due else "",
 
-                "date": date.group(1)
-                if date else "",
+                "date":
+                    date.group(1)
+                    if date else "",
             }
 
 
-            print("Latest bill:")
+
+            print(
+                "Latest bill:"
+            )
+
             print(data)
+
 
 
             old = load_bill()
 
 
+
             if old != data:
 
-                print("New bill detected")
+                print(
+                    "New bill detected"
+                )
+
 
                 save_bill(data)
 
@@ -242,9 +310,12 @@ print(page.locator("body").inner_text()[:2000])
                     f"Due: {data['due']}"
                 )
 
+
             else:
 
-                print("No new bill")
+                print(
+                    "No new bill"
+                )
 
 
         except PlaywrightTimeoutError as e:
@@ -254,6 +325,7 @@ print(page.locator("body").inner_text()[:2000])
                 e
             )
 
+
         except Exception as e:
 
             print(
@@ -261,10 +333,13 @@ print(page.locator("body").inner_text()[:2000])
                 e
             )
 
+
         finally:
 
             browser.close()
 
 
+
 if __name__ == "__main__":
+
     check_bill()
