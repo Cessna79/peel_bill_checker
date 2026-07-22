@@ -1,10 +1,10 @@
-print("VERSION TEST 1.0.4")
+print("VERSION TEST 1.0.8")
+
 import os
 import re
 import json
 import requests
-from playwright.sync_api import sync_playwright
-
+from playwright.sync_api import sync_playwright, TimeoutError as PlaywrightTimeoutError
 
 
 PEEL_LOGIN = "https://peelregion.idoxs.ca/home"
@@ -14,8 +14,6 @@ HA_URL = "http://supervisor/core/api"
 HA_TOKEN = os.environ.get("SUPERVISOR_TOKEN")
 
 LAST_FILE = "/data/last_bill.json"
-
-
 OPTIONS_FILE = "/data/options.json"
 
 
@@ -47,14 +45,21 @@ def notify(message):
         "Content-Type": "application/json",
     }
 
-    requests.post(
-        f"{HA_URL}/services/notify/mobile_app_atg",
-        headers=headers,
-        json={
-            "title": "💧 Peel Water Bill",
-            "message": message
-        },
-    )
+    try:
+        requests.post(
+            f"{HA_URL}/services/notify/mobile_app_atg",
+            headers=headers,
+            json={
+                "title": "💧 Peel Water Bill",
+                "message": message
+            },
+            timeout=10
+        )
+
+        print("Notification sent")
+
+    except Exception as e:
+        print("Notification error:", e)
 
 
 def save_bill(data):
@@ -66,7 +71,7 @@ def save_bill(data):
 def load_bill():
 
     try:
-        with open(LAST_FILE) as f:
+        with open(LAST_FILE, "r") as f:
             return json.load(f)
 
     except:
@@ -74,6 +79,8 @@ def load_bill():
 
 
 def check_bill():
+
+    print("Starting bill check")
 
     if not PEEL_EMAIL or not PEEL_PASSWORD:
         print("Missing Peel credentials")
@@ -89,108 +96,168 @@ def check_bill():
         page = browser.new_page()
 
 
-        print("Opening Peel")
+        try:
 
-        page.goto(
-            PEEL_LOGIN,
-            wait_until="domcontentloaded",
-            timeout=60000
-        )
+            print("Opening Peel login")
 
-        print("Login page loaded")
-
-        page.fill(
-            "#bannerSignInUsername",
-            PEEL_EMAIL
-        )
-
-        page.fill(
-            "#bannerSignInPassword",
-            PEEL_PASSWORD
-        )
-
-
-        page.click("#btnSignIn")
-
-
-        page.wait_for_timeout(5000)
-
-
-        page.goto(
-            PEEL_LOGIN,
-            wait_until="domcontentloaded"
-            timeout=60000
-        )
-
-
-        page.wait_for_selector(
-            "#bannerSignInUsername"'
-            timeout=30000
-       )
-
-
-        bill = page.locator(
-            "#main_BillContainer .table-grid-item"
-        ).first
-
-
-        text = bill.inner_text()
-
-        print(text)
-
-
-        amount = re.search(
-            r"Amount Due\s+\$([\d,]+\.\d+)",
-            text
-        )
-
-        due = re.search(
-            r"Due Date\s+(.+)",
-            text
-        )
-
-        date = re.search(
-            r"Bill Date\s+(.+)",
-            text
-        )
-
-
-        if not amount:
-            print("No bill found")
-            return
-
-
-        data = {
-            "amount": "$" + amount.group(1),
-            "due": due.group(1) if due else "",
-            "date": date.group(1) if date else "",
-        }
-
-
-        print(data)
-
-
-        old = load_bill()
-
-
-        if old != data:
-
-            save_bill(data)
-
-            notify(
-                f"New Region of Peel bill\n\n"
-                f"Amount: {data['amount']}\n"
-                f"Bill date: {data['date']}\n"
-                f"Due: {data['due']}"
+            page.goto(
+                PEEL_LOGIN,
+                wait_until="domcontentloaded",
+                timeout=60000
             )
 
-        else:
 
-            print("No new bill")
+            print("Login page loaded")
 
 
-        browser.close()
+            page.wait_for_selector(
+                "#bannerSignInUsername",
+                timeout=30000
+            )
 
+            print("Login form found")
+
+
+            page.fill(
+                "#bannerSignInUsername",
+                PEEL_EMAIL
+            )
+
+            print("Email entered")
+
+
+            page.fill(
+                "#bannerSignInPassword",
+                PEEL_PASSWORD
+            )
+
+            print("Password entered")
+
+
+            page.click(
+                "#btnSignIn"
+            )
+
+            print("Clicked login")
+
+
+            page.wait_for_timeout(5000)
+
+
+            print(
+                "After login URL:",
+                page.url
+            )
+
+
+            print("Opening bills page")
+
+
+            page.goto(
+                PEEL_BILLS,
+                wait_until="domcontentloaded",
+                timeout=60000
+            )
+
+
+            print("Bills page loaded")
+
+
+            page.wait_for_selector(
+                "#main_BillContainer",
+                timeout=30000
+            )
+
+
+            bill = page.locator(
+                "#main_BillContainer .table-grid-item"
+            ).first
+
+
+            text = bill.inner_text()
+
+            print("Bill text:")
+            print(text)
+
+
+            amount = re.search(
+                r"Amount Due\s+\$([\d,]+\.\d+)",
+                text
+            )
+
+
+            due = re.search(
+                r"Due Date\s+([A-Za-z]+\s+\d+,\s+\d{4})",
+                text
+            )
+
+
+            date = re.search(
+                r"Bill Date\s+([A-Za-z]+\s+\d+,\s+\d{4})",
+                text
+            )
+
+
+            if not amount:
+                print("Amount not found")
+                return
+
+
+            data = {
+
+                "amount": "$" + amount.group(1),
+
+                "due": due.group(1)
+                if due else "",
+
+                "date": date.group(1)
+                if date else "",
+            }
+
+
+            print("Latest bill:")
+            print(data)
+
+
+            old = load_bill()
+
+
+            if old != data:
+
+                print("New bill detected")
+
+                save_bill(data)
+
+
+                notify(
+                    f"New Region of Peel water bill\n\n"
+                    f"Amount: {data['amount']}\n"
+                    f"Bill date: {data['date']}\n"
+                    f"Due: {data['due']}"
+                )
+
+            else:
+
+                print("No new bill")
+
+
+        except PlaywrightTimeoutError as e:
+
+            print(
+                "Playwright timeout:",
+                e
+            )
+
+        except Exception as e:
+
+            print(
+                "Error:",
+                e
+            )
+
+        finally:
+
+            browser.close()
 
 
 if __name__ == "__main__":
