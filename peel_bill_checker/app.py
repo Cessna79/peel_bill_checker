@@ -1,4 +1,4 @@
-print("VERSION TEST 1.0.14")
+print("VERSION TEST 1.0.15")
 
 import os
 import re
@@ -13,6 +13,8 @@ from playwright.sync_api import (
 
 PEEL_LOGIN = "https://peelregion.idoxs.ca/home"
 
+PEEL_HOME = "https://peelregion.idoxs.ca/billing/home.aspx"
+
 HA_URL = "http://supervisor/core/api"
 
 HA_TOKEN = os.environ.get("SUPERVISOR_TOKEN")
@@ -26,11 +28,14 @@ OPTIONS_FILE = "/data/options.json"
 def get_app_config():
 
     try:
+
         with open(OPTIONS_FILE, "r") as f:
             return json.load(f)
 
     except Exception as e:
+
         print("Could not read options:", e)
+
         return {}
 
 
@@ -46,26 +51,38 @@ PEEL_PASSWORD = CONFIG.get("peel_password")
 def notify(message):
 
     if not HA_TOKEN:
+
         print("No HA token")
+
         return
+
 
     try:
 
         requests.post(
+
             f"{HA_URL}/services/notify/mobile_app_atg",
 
             headers={
+
                 "Authorization": f"Bearer {HA_TOKEN}",
+
                 "Content-Type": "application/json",
+
             },
 
             json={
+
                 "title": "💧 Peel Water Bill",
+
                 "message": message
+
             },
 
             timeout=10
+
         )
+
 
         print("Notification sent")
 
@@ -82,7 +99,9 @@ def save_bill(data):
     try:
 
         with open(LAST_FILE, "w") as f:
+
             json.dump(data, f)
+
 
         print("Bill saved")
 
@@ -99,7 +118,9 @@ def load_bill():
     try:
 
         with open(LAST_FILE, "r") as f:
+
             return json.load(f)
+
 
     except:
 
@@ -116,6 +137,7 @@ def check_bill():
     if not PEEL_EMAIL or not PEEL_PASSWORD:
 
         print("Missing Peel credentials")
+
         return
 
 
@@ -124,7 +146,17 @@ def check_bill():
 
 
         browser = p.chromium.launch(
-            headless=True
+
+            headless=True,
+
+            args=[
+
+                "--disable-dev-shm-usage",
+
+                "--no-sandbox"
+
+            ]
+
         )
 
 
@@ -138,20 +170,60 @@ def check_bill():
             print("Opening Peel login")
 
 
-            page.goto(
-                PEEL_LOGIN,
-                wait_until="domcontentloaded",
-                timeout=60000
-            )
+            for attempt in range(1, 4):
+
+                try:
+
+                    print(
+                        f"Login attempt {attempt}/3"
+                    )
 
 
-            print("Login page loaded")
+                    page.goto(
+
+                        PEEL_LOGIN,
+
+                        wait_until="domcontentloaded",
+
+                        timeout=60000
+
+                    )
+
+
+                    print(
+                        "Login page loaded"
+                    )
+
+
+                    break
+
+
+
+                except Exception as e:
+
+
+                    print(
+                        f"Login attempt {attempt} failed:",
+                        e
+                    )
+
+
+                    if attempt == 3:
+
+                        raise
+
+
+                    page.wait_for_timeout(5000)
+
 
 
 
             page.wait_for_selector(
+
                 "#bannerSignInUsername",
+
                 timeout=30000
+
             )
 
 
@@ -160,26 +232,37 @@ def check_bill():
 
 
             page.fill(
+
                 "#bannerSignInUsername",
+
                 PEEL_EMAIL
+
             )
+
 
             print("Email entered")
 
 
 
             page.fill(
+
                 "#bannerSignInPassword",
+
                 PEEL_PASSWORD
+
             )
+
 
             print("Password entered")
 
 
 
             page.click(
+
                 "#btnSignIn"
+
             )
+
 
             print("Clicked login")
 
@@ -190,8 +273,11 @@ def check_bill():
 
 
             print(
+
                 "After login URL:",
+
                 page.url
+
             )
 
 
@@ -201,37 +287,59 @@ def check_bill():
 
 
             page.goto(
-                "https://peelregion.idoxs.ca/billing/home.aspx",
+
+                PEEL_HOME,
+
                 wait_until="domcontentloaded",
+
                 timeout=60000
+
             )
+
 
 
             print("Billing home loaded")
 
+
+
             print(
+
                 "Current URL:",
+
                 page.url
+
             )
 
 
 
-            body_text = page.locator(
-                "body"
-            ).inner_text()
+            html = page.content()
 
 
 
             with open(
+
                 "/data/peel_debug.html",
+
                 "w",
+
                 encoding="utf-8"
+
             ) as f:
 
-                f.write(page.content())
+                f.write(html)
+
 
 
             print("Saved HTML dump")
+
+
+
+            body_text = page.locator(
+
+                "body"
+
+            ).inner_text()
+
 
 
             print(body_text[:3000])
@@ -242,14 +350,11 @@ def check_bill():
 
 
 
-            lines = body_text.splitlines()
-
-
-
             bill_line = None
 
 
-            for line in lines:
+
+            for line in body_text.splitlines():
 
                 if "You had a bill for" in line:
 
@@ -269,8 +374,11 @@ def check_bill():
 
 
             print(
+
                 "Found bill line:",
+
                 bill_line
+
             )
 
 
@@ -288,23 +396,17 @@ def check_bill():
             if not match:
 
 
-                print("Could not parse bill line")
+                print("Could not parse bill")
 
                 return
 
 
 
-            amount = match.group(1)
-
-            due = match.group(2)
-
-
-
             data = {
 
-                "amount": "$" + amount,
+                "amount": "$" + match.group(1),
 
-                "due": due,
+                "due": match.group(2),
 
                 "date": ""
 
@@ -312,9 +414,7 @@ def check_bill():
 
 
 
-            print(
-                "Latest bill:"
-            )
+            print("Latest bill:")
 
             print(data)
 
@@ -356,8 +456,11 @@ def check_bill():
 
 
             print(
+
                 "Playwright timeout:",
+
                 e
+
             )
 
 
@@ -365,8 +468,11 @@ def check_bill():
 
 
             print(
+
                 "Error:",
+
                 e
+
             )
 
 
