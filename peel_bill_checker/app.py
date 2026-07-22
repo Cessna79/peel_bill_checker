@@ -3,6 +3,7 @@ import re
 import json
 import requests
 from playwright.sync_api import sync_playwright
+print("VERSION TEST 1.0.4")
 
 
 PEEL_LOGIN = "https://peelregion.idoxs.ca/home"
