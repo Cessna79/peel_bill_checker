@@ -8,7 +8,7 @@ from playwright.sync_api import sync_playwright, TimeoutError as PlaywrightTimeo
 
 
 PEEL_LOGIN = "https://peelregion.idoxs.ca/home"
-PEEL_BILLS = "https://peelregion.idoxs.ca/billing/bills.aspx"
+PEEL_HOME = "https://peelregion.idoxs.ca/billing/home.aspx"
 
 HA_URL = "http://supervisor/core/api"
 HA_TOKEN = os.environ.get("SUPERVISOR_TOKEN")
@@ -28,10 +28,12 @@ def get_app_config():
         return {}
 
 
+
 CONFIG = get_app_config()
 
 PEEL_EMAIL = CONFIG.get("peel_email")
 PEEL_PASSWORD = CONFIG.get("peel_password")
+
 
 
 def notify(message):
@@ -41,6 +43,7 @@ def notify(message):
         return
 
     try:
+
         requests.post(
             f"{HA_URL}/services/notify/mobile_app_atg",
             headers={
@@ -71,10 +74,12 @@ def save_bill(data):
 def load_bill():
 
     try:
+
         with open(LAST_FILE, "r") as f:
             return json.load(f)
 
     except:
+
         return None
 
 
@@ -83,21 +88,28 @@ def check_bill():
 
     print("Starting bill check")
 
+
     if not PEEL_EMAIL or not PEEL_PASSWORD:
+
         print("Missing Peel credentials")
         return
 
 
+
     with sync_playwright() as p:
+
 
         browser = p.chromium.launch(
             headless=True
         )
 
+
         page = browser.new_page()
 
 
+
         try:
+
 
             print("Opening Peel login")
 
@@ -121,12 +133,15 @@ def check_bill():
             print("Login form found")
 
 
+
             page.fill(
                 "#bannerSignInUsername",
                 PEEL_EMAIL
             )
 
+
             print("Email entered")
+
 
 
             page.fill(
@@ -134,17 +149,21 @@ def check_bill():
                 PEEL_PASSWORD
             )
 
+
             print("Password entered")
+
 
 
             page.click(
                 "#btnSignIn"
             )
 
+
             print("Clicked login")
 
 
             page.wait_for_timeout(5000)
+
 
 
             print(
@@ -153,17 +172,23 @@ def check_bill():
             )
 
 
-            print("Opening bills page")
+
+            print("Opening billing home")
+
 
 
             page.goto(
-                PEEL_BILLS,
+                PEEL_HOME,
                 wait_until="domcontentloaded",
                 timeout=60000
             )
 
 
-            print("Bills page loaded")
+
+            print(
+                "Billing home loaded"
+            )
+
 
 
             print(
@@ -172,18 +197,24 @@ def check_bill():
             )
 
 
-            # Save page for inspection
+
             html = page.content()
+
 
             with open(
                 "/data/peel_debug.html",
                 "w",
                 encoding="utf-8"
             ) as f:
+
                 f.write(html)
 
 
-            print("Saved HTML dump")
+
+            print(
+                "Saved HTML dump"
+            )
+
 
 
             print(
@@ -192,65 +223,133 @@ def check_bill():
             )
 
 
-            body = page.locator("body").inner_text()
 
-            print(
-                body[:2000]
-            )
+            body = page.locator(
+                "body"
+            ).inner_text()
 
-
-            print("Searching bills")
-
-
-            bills = page.locator(
-                "#main_BillContainer .table-grid-item"
-            )
-
-
-            count = bills.count()
 
 
             print(
-                "Bill count:",
-                count
+                body[:3000]
             )
 
 
-            if count == 0:
+
+            print(
+                "Searching bill links"
+            )
+
+
+
+            links = page.locator(
+                "a"
+            ).evaluate_all(
+                "(els)=>els.map(e=>e.href)"
+            )
+
+
+
+            for link in links:
+
+                if "bill" in link.lower():
+
+                    print(
+                        "BILL LINK:",
+                        link
+                    )
+
+
+
+            print(
+                "Searching bill containers"
+            )
+
+
+
+            selectors = [
+
+                "#main_BillContainer .table-grid-item",
+
+                ".table-grid-item",
+
+                ".bill",
+
+                ".invoice",
+
+                "table"
+
+            ]
+
+
+
+            bill_text = None
+
+
+
+            for selector in selectors:
+
+
+                count = page.locator(
+                    selector
+                ).count()
+
+
 
                 print(
-                    "No bill containers found"
+                    selector,
+                    "count:",
+                    count
+                )
+
+
+
+                if count > 0:
+
+                    bill_text = page.locator(
+                        selector
+                    ).first.inner_text()
+
+                    break
+
+
+
+            if not bill_text:
+
+
+                print(
+                    "No bill data found"
                 )
 
                 return
 
-
-            text = bills.first.inner_text()
 
 
             print(
                 "Bill text:"
             )
 
-            print(text)
+            print(
+                bill_text
+            )
 
 
 
             amount = re.search(
                 r"Amount Due\s+\$([\d,]+\.\d+)",
-                text
+                bill_text
             )
 
 
             due = re.search(
                 r"Due Date\s+([A-Za-z]+\s+\d+,\s+\d{4})",
-                text
+                bill_text
             )
 
 
             date = re.search(
                 r"Bill Date\s+([A-Za-z]+\s+\d+,\s+\d{4})",
-                text
+                bill_text
             )
 
 
@@ -267,25 +366,28 @@ def check_bill():
 
             data = {
 
+
                 "amount":
                     "$" + amount.group(1),
+
 
                 "due":
                     due.group(1)
                     if due else "",
 
+
                 "date":
                     date.group(1)
-                    if date else "",
+                    if date else ""
+
             }
 
 
 
             print(
-                "Latest bill:"
+                "Latest bill:",
+                data
             )
-
-            print(data)
 
 
 
@@ -295,12 +397,14 @@ def check_bill():
 
             if old != data:
 
+
                 print(
                     "New bill detected"
                 )
 
 
                 save_bill(data)
+
 
 
                 notify(
@@ -316,6 +420,7 @@ def check_bill():
                 print(
                     "No new bill"
                 )
+
 
 
         except PlaywrightTimeoutError as e:
