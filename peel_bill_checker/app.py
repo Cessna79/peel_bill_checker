@@ -1,4 +1,4 @@
-print("VERSION TEST 1.0.4")
+print("VERSION TEST 1.0.7")
 import os
 import re
 import json
@@ -93,9 +93,11 @@ def check_bill():
 
         page.goto(
             PEEL_LOGIN,
-            wait_until="networkidle"
+            wait_until="domcontentloaded",
+            timeout=60000
         )
 
+        print("Login page loaded")
 
         page.fill(
             "#bannerSignInUsername",
@@ -115,12 +117,16 @@ def check_bill():
 
 
         page.goto(
-            PEEL_BILLS,
-            wait_until="networkidle"
+            PEEL_LOGIN,
+            wait_until="domcontentloaded"
+            timeout=60000
         )
 
 
-        page.wait_for_timeout(3000)
+        page.wait_for_selector(
+            "#bannerSignInUsername"'
+            timeout=30000
+       )
 
 
         bill = page.locator(
