@@ -1,5 +1,5 @@
 #!/bin/bash
 
-echo "Starting Peel Water Bill Checker VERSION 1.0.5"
+echo "Starting Peel Water Bill Checker VERSION 1.0.6"
 
 python3 -u /app/app.py
