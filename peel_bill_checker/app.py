@@ -1,7 +1,6 @@
 import os
 import re
 import json
-import subprocess
 import requests
 from playwright.sync_api import sync_playwright
 
@@ -15,22 +14,24 @@ HA_TOKEN = os.environ.get("SUPERVISOR_TOKEN")
 LAST_FILE = "/data/last_bill.json"
 
 
-def get_config():
+OPTIONS_FILE = "/data/options.json"
+
+
+def get_app_config():
+
     try:
-        output = subprocess.check_output(
-            ["bashio", "addon", "options"]
-        )
-        return json.loads(output)
+        with open(OPTIONS_FILE, "r") as f:
+            return json.load(f)
 
     except Exception as e:
-        print("Config error:", e)
+        print("Could not read options:", e)
         return {}
 
 
-config = get_config()
+CONFIG = get_app_config()
 
-EMAIL = config.get("peel_email")
-PASSWORD = config.get("peel_password")
+PEEL_EMAIL = CONFIG.get("peel_email")
+PEEL_PASSWORD = CONFIG.get("peel_password")
 
 
 def notify(message):
