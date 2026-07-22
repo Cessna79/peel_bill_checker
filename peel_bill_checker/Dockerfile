@@ -1,17 +1,19 @@
 ARG BUILD_FROM
 
-FROM python:3.12-slim
+FROM $BUILD_FROM
 
 WORKDIR /app
 
 COPY requirements.txt .
 
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip3 install --no-cache-dir -r requirements.txt
 
-RUN playwright install --with-deps chromium
+RUN pip3 install playwright
 
-COPY app.py .
-COPY run.sh .
+RUN playwright install chromium
+
+COPY app.py /app/app.py
+COPY run.sh /app/run.sh
 
 RUN chmod +x /app/run.sh
 
