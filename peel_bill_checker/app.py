@@ -153,20 +153,26 @@ def check_bill():
             print("Opening bills page")
 
 
-            page.goto(
-                PEEL_BILLS,
-                wait_until="domcontentloaded",
-                timeout=60000
-            )
+           page.goto(
+    PEEL_BILLS,
+    wait_until="domcontentloaded",
+    timeout=60000
+)
 
+print("Bills page loaded")
 
-            print("Bills page loaded")
+print("Current URL:", page.url)
 
+html = page.content()
 
-            page.wait_for_selector(
-                "#main_BillContainer",
-                timeout=30000
-            )
+with open("/data/peel_debug.html", "w", encoding="utf-8") as f:
+    f.write(html)
+
+print("Saved HTML dump")
+
+print(page.title())
+
+print(page.locator("body").inner_text()[:2000])
 
 
             bill = page.locator(
