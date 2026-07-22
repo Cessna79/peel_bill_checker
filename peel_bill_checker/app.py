@@ -1,4 +1,4 @@
-print("VERSION TEST 1.0.12")
+print("VERSION TEST 1.0.13")
 
 import os
 import re
@@ -260,11 +260,11 @@ def check_bill():
 
 
 
-            bill_match = re.search(
-
-                r"You had a bill for \$([\d,]+\.\d+) due on ([A-Za-z]+\s+\d+,\s+\d{4})",
-
-                body_text
+           bill_match = re.search(
+               r"You had a bill for\s+\$([\d,]+\.\d+)\s+due on\s+([A-Za-z]+\s+\d+,\s+\d{4})",
+               body_text,
+               re.MULTILINE
+            )
 
             )
 
@@ -272,13 +272,17 @@ def check_bill():
 
             if not bill_match:
 
+               print("No bill history found")
 
-                print("No bill history found")
+               print("Searching manually...")
 
+              lines = body_text.splitlines()
 
-                return
+              for line in lines:
+                  if "You had a bill for" in line:
+                       print("FOUND LINE:", repr(line))
 
-
+              return
 
 
             amount = bill_match.group(1)
