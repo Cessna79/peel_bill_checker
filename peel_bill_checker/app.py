@@ -1,4 +1,4 @@
-print("VERSION TEST 1.0.13")
+print("VERSION TEST 1.0.14")
 
 import os
 import re
@@ -12,8 +12,6 @@ from playwright.sync_api import (
 
 
 PEEL_LOGIN = "https://peelregion.idoxs.ca/home"
-
-PEEL_BILLS = "https://peelregion.idoxs.ca/billing/Bills.aspx"
 
 HA_URL = "http://supervisor/core/api"
 
@@ -51,7 +49,6 @@ def notify(message):
         print("No HA token")
         return
 
-
     try:
 
         requests.post(
@@ -70,7 +67,6 @@ def notify(message):
             timeout=10
         )
 
-
         print("Notification sent")
 
 
@@ -88,8 +84,7 @@ def save_bill(data):
         with open(LAST_FILE, "w") as f:
             json.dump(data, f)
 
-
-        print("Saved bill")
+        print("Bill saved")
 
 
     except Exception as e:
@@ -105,7 +100,6 @@ def load_bill():
 
         with open(LAST_FILE, "r") as f:
             return json.load(f)
-
 
     except:
 
@@ -170,7 +164,6 @@ def check_bill():
                 PEEL_EMAIL
             )
 
-
             print("Email entered")
 
 
@@ -180,7 +173,6 @@ def check_bill():
                 PEEL_PASSWORD
             )
 
-
             print("Password entered")
 
 
@@ -188,7 +180,6 @@ def check_bill():
             page.click(
                 "#btnSignIn"
             )
-
 
             print("Clicked login")
 
@@ -216,31 +207,12 @@ def check_bill():
             )
 
 
-
             print("Billing home loaded")
-
 
             print(
                 "Current URL:",
                 page.url
             )
-
-
-
-            html = page.content()
-
-
-            with open(
-                "/data/peel_debug.html",
-                "w",
-                encoding="utf-8"
-            ) as f:
-
-                f.write(html)
-
-
-
-            print("Saved HTML dump")
 
 
 
@@ -250,9 +222,19 @@ def check_bill():
 
 
 
-            print(
-                body_text[:3000]
-            )
+            with open(
+                "/data/peel_debug.html",
+                "w",
+                encoding="utf-8"
+            ) as f:
+
+                f.write(page.content())
+
+
+            print("Saved HTML dump")
+
+
+            print(body_text[:3000])
 
 
 
@@ -260,45 +242,69 @@ def check_bill():
 
 
 
-           bill_match = re.search(
-               r"You had a bill for\s+\$([\d,]+\.\d+)\s+due on\s+([A-Za-z]+\s+\d+,\s+\d{4})",
-               body_text,
-               re.MULTILINE
+            lines = body_text.splitlines()
+
+
+
+            bill_line = None
+
+
+            for line in lines:
+
+                if "You had a bill for" in line:
+
+                    bill_line = line.strip()
+
+                    break
+
+
+
+            if not bill_line:
+
+
+                print("No bill history found")
+
+                return
+
+
+
+            print(
+                "Found bill line:",
+                bill_line
             )
 
+
+
+            match = re.search(
+
+                r"You had a bill for\s+\$([\d,]+\.\d+)\s+due on\s+(.+)",
+
+                bill_line
+
             )
 
 
 
-            if not bill_match:
-
-               print("No bill history found")
-
-               print("Searching manually...")
-
-              lines = body_text.splitlines()
-
-              for line in lines:
-                  if "You had a bill for" in line:
-                       print("FOUND LINE:", repr(line))
-
-              return
+            if not match:
 
 
-            amount = bill_match.group(1)
+                print("Could not parse bill line")
 
-            due_date = bill_match.group(2)
+                return
+
+
+
+            amount = match.group(1)
+
+            due = match.group(2)
 
 
 
             data = {
 
-
                 "amount": "$" + amount,
 
-
-                "due": due_date,
-
+                "due": due,
 
                 "date": ""
 
@@ -314,7 +320,6 @@ def check_bill():
 
 
 
-
             old = load_bill()
 
 
@@ -322,10 +327,7 @@ def check_bill():
             if old != data:
 
 
-                print(
-                    "New bill detected"
-                )
-
+                print("New bill detected")
 
 
                 save_bill(data)
@@ -343,13 +345,10 @@ def check_bill():
                 )
 
 
-
             else:
 
 
-                print(
-                    "No new bill"
-                )
+                print("No new bill")
 
 
 
@@ -362,7 +361,6 @@ def check_bill():
             )
 
 
-
         except Exception as e:
 
 
@@ -372,12 +370,10 @@ def check_bill():
             )
 
 
-
         finally:
 
 
             browser.close()
-
 
 
 
