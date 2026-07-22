@@ -1,4 +1,4 @@
-print("VERSION TEST 1.0.16")
+print("VERSION TEST 1.0.17")
 
 import os
 import re
@@ -22,15 +22,19 @@ LAST_FILE = "/data/last_bill.json"
 OPTIONS_FILE = "/data/options.json"
 
 
+
 def get_config():
 
     try:
+
         with open(OPTIONS_FILE, "r") as f:
             return json.load(f)
 
     except Exception as e:
+
         print("Config error:", e)
         return {}
+
 
 
 CONFIG = get_config()
@@ -39,46 +43,69 @@ PEEL_EMAIL = CONFIG.get("peel_email")
 PEEL_PASSWORD = CONFIG.get("peel_password")
 
 
+
 def notify(message):
 
     if not HA_TOKEN:
+
         print("No HA token")
         return
+
 
     try:
 
         requests.post(
+
             f"{HA_URL}/services/notify/mobile_app_atg",
+
             headers={
+
                 "Authorization": f"Bearer {HA_TOKEN}",
-                "Content-Type": "application/json",
+
+                "Content-Type": "application/json"
+
             },
+
             json={
+
                 "title": "💧 Peel Water Bill",
+
                 "message": message
+
             },
+
             timeout=10
+
         )
+
 
         print("Notification sent")
 
+
     except Exception as e:
-        print("Notify error:", e)
+
+        print("Notification error:", e)
+
 
 
 
 def save_bill(data):
 
     with open(LAST_FILE, "w") as f:
+
         json.dump(data, f)
+
 
 
 
 def load_bill():
 
     try:
+
         with open(LAST_FILE, "r") as f:
+
             return json.load(f)
+
 
     except:
 
@@ -86,26 +113,38 @@ def load_bill():
 
 
 
+
 def login(page):
+
 
     for attempt in range(1,4):
 
         print(f"Login attempt {attempt}/3")
 
+
         try:
 
+
             page.goto(
+
                 PEEL_LOGIN,
+
                 wait_until="domcontentloaded",
+
                 timeout=60000
+
             )
+
 
             print("Login page loaded")
 
 
             page.wait_for_selector(
+
                 "#bannerSignInUsername",
+
                 timeout=30000
+
             )
 
 
@@ -113,14 +152,20 @@ def login(page):
 
 
             page.fill(
+
                 "#bannerSignInUsername",
+
                 PEEL_EMAIL
+
             )
 
 
             page.fill(
+
                 "#bannerSignInPassword",
+
                 PEEL_PASSWORD
+
             )
 
 
@@ -133,10 +178,15 @@ def login(page):
             page.wait_for_timeout(5000)
 
 
+
             print(
-                "After login:",
+
+                "After login URL:",
+
                 page.url
+
             )
+
 
 
             if "billing" in page.url:
@@ -144,130 +194,193 @@ def login(page):
                 return True
 
 
+
         except Exception as e:
 
+
             print(
+
                 f"Login attempt {attempt} failed:",
+
                 e
+
             )
 
+
             time.sleep(5)
+
 
 
     return False
 
 
 
+
 def extract_bill(text):
+
 
     print("Searching account activity")
 
 
-    # Example:
-    # You had a bill for $1,112.93 due on June 24, 2026
+    # Remove hidden characters from website
 
-    match = re.search(
-        r"You had a bill for \$([\d,]+\.\d+)\s+due on\s+([A-Za-z]+\s+\d+,\s+\d{4})",
+    text = text.replace("\xa0", " ")
+
+    text = " ".join(text.split())
+
+
+    print("Normalized account text")
+
+
+    matches = re.findall(
+
+        r"You had a bill for\s+\$([\d,]+\.\d+)\s+due on\s+([A-Za-z]+\s+\d+,\s+\d{4})",
+
         text
+
     )
 
 
-    if not match:
+    if not matches:
+
 
         print("No bill history found")
+
         return None
 
 
-    amount = "$" + match.group(1)
 
-    due = match.group(2)
+    amount, due = matches[0]
 
 
     data = {
 
-        "amount": amount,
+
+        "amount": "$" + amount,
+
 
         "due": due,
+
 
         "date": ""
 
     }
 
 
+    print("Bill extracted:")
+
+    print(data)
+
+
     return data
+
 
 
 
 def check_bill():
 
+
     print("Starting bill check")
+
 
 
     if not PEEL_EMAIL or not PEEL_PASSWORD:
 
+
         print("Missing Peel credentials")
+
         return
+
 
 
 
     with sync_playwright() as p:
 
 
+
         browser = p.chromium.launch(
+
             headless=True
+
         )
 
 
         page = browser.new_page()
 
 
+
         try:
+
 
 
             if not login(page):
 
+
                 print("Login failed")
+
                 return
+
 
 
 
             print("Opening billing home")
 
 
+
             page.goto(
+
                 PEEL_HOME,
+
                 wait_until="domcontentloaded",
+
                 timeout=60000
+
             )
+
 
 
             print("Billing home loaded")
 
 
+
             print(
+
                 "Current URL:",
+
                 page.url
+
             )
+
 
 
             page.wait_for_timeout(5000)
 
 
 
-            text = page.locator(
-                "body"
-            ).inner_text()
+            html = page.content()
+
 
 
             with open(
+
                 "/data/peel_debug.html",
+
                 "w",
+
                 encoding="utf-8"
+
             ) as f:
 
-                f.write(
-                    page.content()
-                )
+                f.write(html)
+
+
+
+            text = page.locator(
+
+                "body"
+
+            ).inner_text()
+
 
 
             print(text[:2000])
@@ -284,12 +397,6 @@ def check_bill():
 
 
 
-            print(
-                "Latest bill:",
-                bill
-            )
-
-
 
             old = load_bill()
 
@@ -298,19 +405,25 @@ def check_bill():
             if old != bill:
 
 
+
                 print("New bill detected")
 
 
-                save_bill(
-                    bill
-                )
+
+                save_bill(bill)
+
 
 
                 notify(
+
                     f"New Region of Peel water bill\n\n"
+
                     f"Amount: {bill['amount']}\n"
+
                     f"Due: {bill['due']}"
+
                 )
+
 
 
             else:
@@ -320,25 +433,38 @@ def check_bill():
 
 
 
+
         except PlaywrightTimeoutError as e:
 
+
             print(
+
                 "Playwright timeout:",
+
                 e
+
             )
+
 
 
         except Exception as e:
 
+
             print(
+
                 "Error:",
+
                 e
+
             )
+
 
 
         finally:
 
+
             browser.close()
+
 
 
 
