@@ -1,4 +1,4 @@
-print("VERSION TEST 1.0.7")
+print("VERSION TEST 1.0.4")
 import os
 import re
 import json
