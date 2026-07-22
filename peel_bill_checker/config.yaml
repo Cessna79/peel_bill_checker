@@ -1,7 +1,7 @@
 name: Peel Water Bill Checker
 version: "1.0.3"
 slug: peel_bill_checker
-description: Checks Region of Peel water bills
+description: Checks Region of Peel water bills and sends notifications
 
 arch:
   - amd64
@@ -18,3 +18,6 @@ schema:
   check_time: str
   peel_email: str
   peel_password: password
+
+map:
+  - homeassistant_api:rw
