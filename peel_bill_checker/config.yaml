@@ -1,5 +1,5 @@
 name: Peel Water Bill Checker
-version: "1.0.4"
+version: "1.0.5"
 slug: peel_bill_checker
 description: Checks Region of Peel water bills
 
@@ -16,7 +16,3 @@ options:
 schema:
   peel_email: str
   peel_password: password
-
-environment:
-  PEEL_EMAIL: "!secret peel_email"
-  PEEL_PASSWORD: "!secret peel_password"
