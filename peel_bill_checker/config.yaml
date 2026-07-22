@@ -1,0 +1,20 @@
+name: Peel Water Bill Checker
+version: "1.0.1"
+slug: peel_bill_checker
+description: Checks Region of Peel water bills
+
+arch:
+  - amd64
+
+startup: application
+boot: auto
+
+options:
+  check_time: "08:00"
+  peel_email: ""
+  peel_password: ""
+
+schema:
+  check_time: str
+  peel_email: str
+  peel_password: password
