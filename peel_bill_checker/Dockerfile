@@ -12,4 +12,4 @@ RUN chmod +x /app/run.sh
 
 RUN pip3 install --no-cache-dir -r /app/requirements.txt
 
-CMD ["/app/run.sh"]
+CMD ["bash", "/app/run.sh"]
