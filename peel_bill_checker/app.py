@@ -7,13 +7,14 @@ import re
 
 print("=" * 50)
 print("Peel Water Bill Checker")
-print("Version 1.0.11")
+print("Version 1.0.12")
 print("=" * 50)
 
 
 OPTIONS = "/data/options.json"
 
 
+# Load Home Assistant addon options
 with open(OPTIONS) as f:
     options = json.load(f)
 
@@ -90,15 +91,8 @@ try:
 
     if not token or not ncform:
         raise Exception(
-            "Security tokens not found"
+            "Login tokens missing"
         )
-
-
-    token = token["value"]
-    ncform = ncform["value"]
-
-
-    print("Tokens received")
 
 
     payload = {
@@ -110,15 +104,17 @@ try:
             (None, password),
 
         "__RequestVerificationToken":
-            (None, token),
+            (None, token["value"]),
 
         "__ncforminfo":
-            (None, ncform),
+            (None, ncform["value"]),
 
         "g-recaptcha-response":
             (None, "")
     }
 
+
+    print("Tokens received")
 
     print("Submitting login...")
 
@@ -141,7 +137,7 @@ try:
     if "redirectToUrl" not in result:
 
         raise Exception(
-            "Login failed"
+            "Login unsuccessful"
         )
 
 
@@ -155,13 +151,9 @@ try:
     )
 
 
-    print(
-        "Opening billing page:"
-    )
-
-    print(
-        billing_url
-    )
+    print()
+    print("Opening billing page:")
+    print(billing_url)
 
 
     billing = session.get(
@@ -186,7 +178,7 @@ try:
     )
 
 
-    # Save page for inspection
+    # Save HTML for backup/debug
 
     with open(
         "/tmp/billing.html",
@@ -199,73 +191,103 @@ try:
         )
 
 
-    print(
-        "Billing HTML saved"
-    )
+    print("Billing HTML saved")
 
 
     print()
-    print(
-        "Searching page..."
-    )
+    print("=" * 50)
+    print("Searching billing page")
+    print("=" * 50)
 
 
-    text = billing.text.lower()
+    text = billing.text
 
 
     keywords = [
-
         "amount",
-
         "balance",
-
         "due",
-
-        "invoice",
-
         "bill",
-
         "payment",
-
         "account"
-
     ]
+
+
+    lower_text = text.lower()
 
 
     for word in keywords:
 
-        if word in text:
+        if word in lower_text:
 
             print(
-                "Found:",
+                "Found keyword:",
                 word
             )
 
 
     print()
-    print(
-        "Looking for dollar amounts..."
-    )
+    print("=" * 50)
+    print("Dollar amount details")
+    print("=" * 50)
 
 
-    amounts = re.findall(
+    amounts_found = set()
+
+
+    for match in re.finditer(
         r"\$[\d,]+\.\d{2}",
-        billing.text
-    )
+        text
+    ):
 
 
-    for amount in amounts[:20]:
+        amount = match.group()
 
-        print(
-            "Amount:",
-            amount
+
+        if amount in amounts_found:
+            continue
+
+
+        amounts_found.add(amount)
+
+
+        start = max(
+            0,
+            match.start() - 200
+        )
+
+        end = min(
+            len(text),
+            match.end() + 200
         )
 
 
+        nearby = text[start:end]
+
+
+        # Clean HTML
+        nearby = BeautifulSoup(
+            nearby,
+            "html.parser"
+        ).get_text(
+            " ",
+            strip=True
+        )
+
+
+        print()
+        print("AMOUNT FOUND:")
+        print(amount)
+
+        print("CONTEXT:")
+        print(nearby)
+
+        print("-" * 60)
+
+
+
     print()
-    print(
-        "Searching complete"
-    )
+    print("Extraction complete")
 
 
 except Exception as e:
@@ -277,9 +299,7 @@ except Exception as e:
 
 
 print()
-print(
-    "Addon running..."
-)
+print("Addon running...")
 
 
 while True:
