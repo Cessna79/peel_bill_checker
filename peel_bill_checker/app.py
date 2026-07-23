@@ -1,120 +1,69 @@
 import requests
 from bs4 import BeautifulSoup
-import json
 import time
 
 
 print("=" * 50)
-print("Peel Water Bill Checker")
-print("Login Debug Version 1.0.6")
+print("Peel Form Inspector")
 print("=" * 50)
-
-
-with open("/data/options.json") as f:
-    options = json.load(f)
-
-
-username = options.get("email")
-password = options.get("password")
 
 
 session = requests.Session()
 
+url = "https://peelregion.idoxs.ca/authentication/login"
 
 headers = {
-    "User-Agent": (
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-        "AppleWebKit/537.36 Chrome/120 Safari/537.36"
-    ),
-    "Referer": "https://peelregion.idoxs.ca/authentication/login",
-    "Origin": "https://peelregion.idoxs.ca"
+    "User-Agent":
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120 Safari/537.36"
 }
 
 
-login_url = "https://peelregion.idoxs.ca/authentication/login"
+r = session.get(url, headers=headers)
 
 
-try:
-
-    print("Opening login page")
-
-    r = session.get(
-        login_url,
-        headers=headers
-    )
+print("Status:", r.status_code)
 
 
-    soup = BeautifulSoup(
-        r.text,
-        "lxml"
-    )
+soup = BeautifulSoup(r.text, "lxml")
 
 
-    form = soup.find("form")
+form = soup.find("form")
 
 
-    data = {}
+print("\nFORM DETAILS")
+
+print("Action:")
+print(form.get("action"))
+
+print("Method:")
+print(form.get("method"))
 
 
-    print("\nAll form elements:")
+print("\nHTML ATTRIBUTES:")
+
+for key, value in form.attrs.items():
+    print(key, "=", value)
 
 
-    for element in form.find_all(
-        ["input", "button"]
-    ):
+print("\nELEMENTS:")
 
-        name = element.get("name")
-        value = element.get("value", "")
+for e in form.find_all(["input", "button"]):
 
-        print(
-            element.name,
-            name,
-            value
-        )
+    print("----------------")
+    print("TAG:", e.name)
 
-        if name:
-            data[name] = value
+    for k,v in e.attrs.items():
+        print(k, "=", v)
 
 
-    data["username"] = username
-    data["password"] = password
+print("\nPossible scripts:")
 
+for script in soup.find_all("script"):
 
-    print("\nSending:")
+    src = script.get("src")
 
-    for k in data:
-        if "password" not in k.lower():
-            print(k, "=", data[k][:40])
-
-
-    result = session.post(
-        login_url,
-        data=data,
-        headers=headers,
-        allow_redirects=False
-    )
-
-
-    print("\nResponse:")
-    print(result.status_code)
-
-    print("Location header:")
-    print(
-        result.headers.get("Location")
-    )
-
-
-    print("\nCookies:")
-
-    for c in session.cookies:
-        print(c.name)
-
-
-except Exception as e:
-
-    print("ERROR:")
-    print(e)
-
+    if src:
+        print(src)
 
 
 while True:
