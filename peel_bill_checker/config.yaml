@@ -1,7 +1,7 @@
 name: Peel Water Bill Checker
-version: "1.0.23"
+version: "1.0.24"
 slug: peel_bill_checker
-description: Checks Region of Peel water bills
+description: Checks Region of Peel water bills and publishes to Home Assistant MQTT
 
 arch:
   - amd64
@@ -16,9 +16,13 @@ options:
   password: ""
   mqtt_host: "core-mosquitto"
   mqtt_port: 1883
+  mqtt_username: ""
+  mqtt_password: ""
 
 schema:
   email: str
   password: password
   mqtt_host: str
   mqtt_port: int
+  mqtt_username: str
+  mqtt_password: password
