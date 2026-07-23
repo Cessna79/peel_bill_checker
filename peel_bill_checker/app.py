@@ -1,4 +1,4 @@
-print("Starting Peel Water Bill Checker VERSION 1.0.26")
+print("Starting Peel Water Bill Checker VERSION 1.0.27")
 
 import os
 import re
