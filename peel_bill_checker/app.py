@@ -1,78 +1,76 @@
+import json
+import os
+import re
+import time
+from datetime import datetime
+
+import paho.mqtt.publish as mqtt_publish
 import requests
 from bs4 import BeautifulSoup
-import json
-import time
-import re
-import os
-from datetime import datetime
-import paho.mqtt.publish as mqtt_publish
-
 
 print("=" * 50)
 print("Peel Water Bill Checker")
-print("Version 1.0.28")
+print("Version 1.0.29")
 print("=" * 50)
-
 
 OPTIONS = "/data/options.json"
 OUTPUT = "/data/peel_bill.json"
 
-
 with open(OPTIONS) as f:
     options = json.load(f)
 
-
 username = options.get("email")
 password = options.get("password")
-
 mqtt_host = options.get("mqtt_host", "core-mosquitto")
-
 mqtt_port = int(options.get("mqtt_port", 1883))
-
 mqtt_username = options.get("mqtt_username")
-
 mqtt_password = options.get("mqtt_password")
 
-
 print("Username loaded:", "YES" if username else "NO")
-
 print("Password loaded:", "YES" if password else "NO")
-
 print("MQTT Host:", mqtt_host)
-
 print("MQTT Port:", mqtt_port)
-
 print("MQTT Username loaded:", "YES" if mqtt_username else "NO")
-
 print("MQTT Password loaded:", "YES" if mqtt_password else "NO")
 
-
 STATE_TOPIC = "homeassistant/sensor/peel_water_bill/state"
-
 ATTR_TOPIC = "homeassistant/sensor/peel_water_bill/attributes"
-
 CONFIG_TOPIC = "homeassistant/sensor/peel_water_bill/config"
 
+CHANGE_STATE_TOPIC = "homeassistant/binary_sensor/peel_water_bill_changed/state"
+CHANGE_CONFIG_TOPIC = "homeassistant/binary_sensor/peel_water_bill_changed/config"
 
-CHANGE_STATE_TOPIC = "homeassistant/binary_sensor/" "peel_water_bill_changed/state"
+BASE_URL = "https://peelregion.idoxs.ca"
+LOGIN_URL = BASE_URL + "/authentication/login"
 
-CHANGE_CONFIG_TOPIC = "homeassistant/binary_sensor/" "peel_water_bill_changed/config"
+HEADERS = {
+    "User-Agent": "Mozilla/5.0 Chrome/150 Safari/537.36",
+    "Accept": "application/json",
+    "Referer": LOGIN_URL,
+    "Origin": BASE_URL,
+}
 
 
 def mqtt_options():
-
     data = {}
-
     if mqtt_username:
         data["auth"] = {"username": mqtt_username, "password": mqtt_password}
-
     return data
 
 
+def mqtt_send(topic, payload):
+    mqtt_publish.single(
+        topic,
+        payload=payload,
+        hostname=mqtt_host,
+        port=mqtt_port,
+        retain=True,
+        **mqtt_options(),
+    )
+
+
 def publish_mqtt(data):
-
     try:
-
         print("Publishing MQTT...")
 
         discovery = {
@@ -105,83 +103,63 @@ def publish_mqtt(data):
             },
         }
 
-        mqtt_publish.single(
-            CONFIG_TOPIC,
-            payload=json.dumps(discovery),
-            hostname=mqtt_host,
-            port=mqtt_port,
-            retain=True,
-            **mqtt_options()
-        )
-
-        mqtt_publish.single(
-            CHANGE_CONFIG_TOPIC,
-            payload=json.dumps(change_discovery),
-            hostname=mqtt_host,
-            port=mqtt_port,
-            retain=True,
-            **mqtt_options()
-        )
-
-        mqtt_publish.single(
-            STATE_TOPIC,
-            payload=str(data["amount_due"]),
-            hostname=mqtt_host,
-            port=mqtt_port,
-            retain=True,
-            **mqtt_options()
-        )
-
-        mqtt_publish.single(
-            ATTR_TOPIC,
-            payload=json.dumps(data),
-            hostname=mqtt_host,
-            port=mqtt_port,
-            retain=True,
-            **mqtt_options()
-        )
-
-        mqtt_publish.single(
-            CHANGE_STATE_TOPIC,
-            payload="ON" if data["changed"] else "OFF",
-            hostname=mqtt_host,
-            port=mqtt_port,
-            retain=True,
-            **mqtt_options()
-        )
+        mqtt_send(CONFIG_TOPIC, json.dumps(discovery))
+        mqtt_send(CHANGE_CONFIG_TOPIC, json.dumps(change_discovery))
+        mqtt_send(STATE_TOPIC, str(data["amount_due"]))
+        mqtt_send(ATTR_TOPIC, json.dumps(data))
+        mqtt_send(CHANGE_STATE_TOPIC, "ON" if data["changed"] else "OFF")
 
         print("MQTT published successfully")
 
     except Exception as e:
-
         print("MQTT error:", e)
 
-        def check_bill():
 
-            session = requests.Session()
+def load_previous_amount():
+    if not os.path.exists(OUTPUT):
+        return None
+    try:
+        with open(OUTPUT) as f:
+            return json.load(f).get("amount_due")
+    except Exception as e:
+        print("Could not read previous bill:", e)
+        return None
 
-    headers = {
-        "User-Agent": "Mozilla/5.0 Chrome/150 Safari/537.36",
-        "Accept": "application/json",
-        "Referer": "https://peelregion.idoxs.ca/authentication/login",
-        "Origin": "https://peelregion.idoxs.ca",
-    }
 
-    login_url = "https://peelregion.idoxs.ca/" "authentication/login"
+def parse_bill(html):
+    soup = BeautifulSoup(html, "html.parser")
+    text = soup.get_text(" ", strip=True)
+
+    amount = None
+    due_date = None
+
+    amount_match = re.search(r"Amount Due\*?\s*\$([\d,]+\.\d{2})", text)
+    if amount_match:
+        amount = float(amount_match.group(1).replace(",", ""))
+
+    position = text.find("Amount Due")
+    if position >= 0:
+        section = text[position:position + 1000]
+        date_match = re.search(r"([A-Za-z]+\s+\d{1,2},\s+\d{4})", section)
+        if date_match:
+            due_date = date_match.group(1)
+
+    return amount, due_date
+
+
+def check_bill():
+    session = requests.Session()
 
     print()
     print("Checking Peel bill...")
 
-    login_page = session.get(login_url, headers=headers, timeout=30)
-
+    login_page = session.get(LOGIN_URL, headers=HEADERS, timeout=30)
     soup = BeautifulSoup(login_page.text, "html.parser")
 
     token = soup.find("input", {"name": "__RequestVerificationToken"})
-
     ncform = soup.find("input", {"name": "__ncforminfo"})
 
     if not token or not ncform:
-
         raise Exception("Login tokens missing")
 
     payload = {
@@ -192,64 +170,21 @@ def publish_mqtt(data):
         "g-recaptcha-response": (None, ""),
     }
 
-    response = session.post(login_url, files=payload, headers=headers, timeout=30)
-
+    response = session.post(LOGIN_URL, files=payload, headers=HEADERS, timeout=30)
     print("Login response:", response.text[:100])
 
     result = response.json()
-
     if "redirectToUrl" not in result:
-
         raise Exception("Login failed")
 
     print("LOGIN SUCCESS")
 
-    billing_url = "https://peelregion.idoxs.ca" + result["redirectToUrl"]
-
-    billing = session.get(billing_url, headers=headers, timeout=30)
-
+    billing_url = BASE_URL + result["redirectToUrl"]
+    billing = session.get(billing_url, headers=HEADERS, timeout=30)
     print("Billing status:", billing.status_code)
 
-    soup = BeautifulSoup(billing.text, "html.parser")
-
-    text = soup.get_text(" ", strip=True)
-
-    amount = None
-    due_date = None
-
-    amount_match = re.search(r"Amount Due\*?\s*\$([\d,]+\.\d{2})", text)
-
-    if amount_match:
-
-        amount = float(amount_match.group(1).replace(",", ""))
-
-    position = text.find("Amount Due")
-
-    if position >= 0:
-
-        section = text[position : position + 1000]
-
-        date_match = re.search(r"([A-Za-z]+\s+\d{1,2},\s+\d{4})", section)
-
-        if date_match:
-
-            due_date = date_match.group(1)
-
-    old_amount = None
-
-    if os.path.exists(OUTPUT):
-
-        try:
-
-            with open(OUTPUT) as f:
-
-                old = json.load(f)
-
-                old_amount = old.get("amount_due")
-
-        except:
-
-            pass
+    amount, due_date = parse_bill(billing.text)
+    old_amount = load_previous_amount()
 
     data = {
         "amount_due": amount,
@@ -261,7 +196,6 @@ def publish_mqtt(data):
     }
 
     with open(OUTPUT, "w") as f:
-
         json.dump(data, f, indent=4)
 
     print(json.dumps(data, indent=4))
@@ -269,21 +203,19 @@ def publish_mqtt(data):
     publish_mqtt(data)
 
 
-print("Waiting 30 seconds for Home Assistant services...")
+def main():
+    print("Waiting 30 seconds for Home Assistant services...")
+    time.sleep(30)
 
-time.sleep(30)
+    while True:
+        try:
+            check_bill()
+        except Exception as e:
+            print("ERROR:", e)
+
+        print("Next check in 24 hours")
+        time.sleep(86400)
 
 
-while True:
-
-    try:
-
-        check_bill()
-
-    except Exception as e:
-
-        print("ERROR:", e)
-
-    print("Next check in 24 hours")
-
-    time.sleep(86400)
+if __name__ == "__main__":
+    main()
