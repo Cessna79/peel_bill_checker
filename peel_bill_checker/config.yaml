@@ -1,10 +1,12 @@
 name: Peel Water Bill Checker
-version: "1.0.18"
+version: "1.0.19"
 slug: peel_bill_checker
 description: Checks Region of Peel water bills
 
 arch:
   - amd64
+
+init: false
 
 startup: application
 boot: auto
@@ -12,7 +14,11 @@ boot: auto
 options:
   email: ""
   password: ""
+  mqtt_host: "core-mosquitto"
+  mqtt_port: 1883
 
 schema:
   email: str
   password: password
+  mqtt_host: str
+  mqtt_port: int
