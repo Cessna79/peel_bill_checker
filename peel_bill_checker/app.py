@@ -1,16 +1,16 @@
-import paho.mqtt.publish as mqtt_publish
 import requests
 from bs4 import BeautifulSoup
 import json
 import time
 import re
-from datetime import datetime
 import os
+from datetime import datetime
+import paho.mqtt.publish as mqtt_publish
 
 
 print("=" * 50)
 print("Peel Water Bill Checker")
-print("Version 1.0.14")
+print("Version 1.0.15")
 print("=" * 50)
 
 
@@ -25,9 +25,80 @@ with open(OPTIONS) as f:
 username = options.get("email")
 password = options.get("password")
 
+mqtt_host = options.get(
+    "mqtt_host",
+    "core-mosquitto"
+)
+
+mqtt_port = options.get(
+    "mqtt_port",
+    1883
+)
+
 
 print("Username loaded:", "YES" if username else "NO")
 print("Password loaded:", "YES" if password else "NO")
+
+
+def publish_mqtt(data):
+
+    try:
+
+        # MQTT discovery
+
+        discovery = {
+            "name": "Peel Water Bill",
+            "unique_id": "peel_water_bill",
+            "state_topic":
+                "homeassistant/sensor/peel_water_bill/state",
+            "json_attributes_topic":
+                "homeassistant/sensor/peel_water_bill/attributes",
+            "unit_of_measurement": "$",
+            "device_class": "monetary",
+            "icon": "mdi:water"
+        }
+
+
+        mqtt_publish.single(
+            "homeassistant/sensor/peel_water_bill/config",
+            payload=json.dumps(discovery),
+            hostname=mqtt_host,
+            port=mqtt_port,
+            retain=True
+        )
+
+
+        # Amount
+
+        mqtt_publish.single(
+            "homeassistant/sensor/peel_water_bill/state",
+            payload=str(data["amount_due"]),
+            hostname=mqtt_host,
+            port=mqtt_port,
+            retain=True
+        )
+
+
+        # Attributes
+
+        mqtt_publish.single(
+            "homeassistant/sensor/peel_water_bill/attributes",
+            payload=json.dumps(data),
+            hostname=mqtt_host,
+            port=mqtt_port,
+            retain=True
+        )
+
+
+        print("MQTT published")
+
+
+    except Exception as e:
+
+        print(
+            "MQTT error:",
+            e
+        )
 
 
 def check_bill():
@@ -38,8 +109,7 @@ def check_bill():
     headers = {
 
         "User-Agent":
-        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
-        "AppleWebKit/537.36 Chrome/150 Safari/537.36",
+        "Mozilla/5.0 Chrome/150 Safari/537.36",
 
         "Accept":
         "application/json",
@@ -164,16 +234,14 @@ def check_bill():
         )
 
 
-    # Find date near current bill
-
-    pos = text.find(
+    position = text.find(
         "Amount Due"
     )
 
 
     section = text[
-        pos:
-        pos + 1000
+        position:
+        position + 1000
     ]
 
 
@@ -201,19 +269,6 @@ def check_bill():
             old_amount = old.get(
                 "amount_due"
             )
-
-
-    if old_amount != amount:
-
-        print(
-            "NEW BILL OR CHANGE DETECTED"
-        )
-
-    else:
-
-        print(
-            "No change"
-        )
 
 
     data = {
@@ -255,13 +310,16 @@ def check_bill():
         )
 
 
-    print()
     print(
         json.dumps(
             data,
             indent=4
         )
     )
+
+
+    publish_mqtt(data)
+
 
 
 while True:
@@ -283,6 +341,4 @@ while True:
     )
 
 
-    time.sleep(
-        86400
-    )
+    time.sleep(86400)
