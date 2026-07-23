@@ -1,17 +1,16 @@
 ARG BUILD_FROM
-
 FROM ${BUILD_FROM}
 
 WORKDIR /app
 
-COPY requirements.txt .
+COPY requirements.txt /app/
 
-RUN pip3 install --no-cache-dir --break-system-packages -r requirements.txt
+RUN python3 -m pip install --no-cache-dir -r requirements.txt
 
-COPY app.py .
+COPY app.py /app/
 
-COPY run.sh /run.sh
+COPY run.sh /
 
-RUN chmod a+x /run.sh
+RUN chmod +x /run.sh
 
 CMD ["/run.sh"]
