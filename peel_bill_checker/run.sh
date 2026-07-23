@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/with-contenv bashio
 
 echo "=================================="
 echo "Peel Water Bill Checker Starting"
