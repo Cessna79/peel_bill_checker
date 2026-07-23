@@ -6,7 +6,7 @@ import time
 
 print("=" * 50)
 print("Peel Water Bill Checker")
-print("Login Success Test 1.0.9")
+print("Login Test 1.1.10")
 print("=" * 50)
 
 
@@ -23,10 +23,12 @@ session = requests.Session()
 
 headers = {
     "User-Agent":
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-        "AppleWebKit/537.36 Chrome/120 Safari/537.36",
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+        "AppleWebKit/537.36 "
+        "Chrome/150.0 Safari/537.36",
 
-    "Accept": "application/json",
+    "Accept":
+        "application/json",
 
     "Referer":
         "https://peelregion.idoxs.ca/authentication/login",
@@ -41,7 +43,8 @@ login_url = "https://peelregion.idoxs.ca/authentication/login"
 
 try:
 
-    print("Opening login page")
+    print("Loading login page")
+
 
     page = session.get(
         login_url,
@@ -67,92 +70,101 @@ try:
     )["value"]
 
 
-    login_data = {
+    # IMPORTANT:
+    # multipart fields like browser
+    payload = {
 
-        "username": username,
+        "username":
+        (None, username),
 
-        "password": password,
+        "password":
+        (None, password),
 
-        "__RequestVerificationToken": token,
+        "__RequestVerificationToken":
+        (None, token),
 
-        "__ncforminfo": ncform
+        "__ncforminfo":
+        (None, ncform),
+
+        "g-recaptcha-response":
+        (None, "")
     }
 
 
-    print("Sending login")
+    print("Submitting AJAX login")
 
 
     response = session.post(
         login_url,
-        files=login_data,
+        files=payload,
         headers=headers
     )
 
 
-    print("Login response:")
-
-    print(response.text)
-
-
-    result = response.json()
+    print("Status:")
+    print(response.status_code)
 
 
-    if "redirectToUrl" in result:
-
-        next_page = (
-            "https://peelregion.idoxs.ca"
-            + result["redirectToUrl"]
-        )
+    print("Response:")
+    print(response.text[:500])
 
 
-        print("Login successful")
-
-        print("Opening:")
-        print(next_page)
-
-
-        bill_page = session.get(
-            next_page,
-            headers={
-                "User-Agent":
-                headers["User-Agent"]
-            }
-        )
+    if response.headers.get(
+        "content-type",
+        ""
+    ).startswith("application/json"):
 
 
-        print(
-            "Billing page status:",
-            bill_page.status_code
-        )
+        result = response.json()
 
 
-        print(
-            "Billing page size:",
-            len(bill_page.text)
-        )
+        if "redirectToUrl" in result:
+
+            print("LOGIN SUCCESS")
+
+            billing_url = (
+                "https://peelregion.idoxs.ca"
+                + result["redirectToUrl"]
+            )
+
+            print(
+                "Opening:",
+                billing_url
+            )
 
 
-        with open(
-            "/tmp/billing.html",
-            "w"
-        ) as f:
-            f.write(bill_page.text)
+            bill = session.get(
+                billing_url,
+                headers=headers
+            )
 
 
-        print(
-            "Saved billing page"
-        )
+            print(
+                "Billing status:",
+                bill.status_code
+            )
+
+
+            print(
+                "Billing page length:",
+                len(bill.text)
+            )
+
+
+        else:
+            print("No redirect received")
 
 
     else:
 
-        print("Login failed")
+        print("Server did not return JSON")
 
 
 except Exception as e:
 
     print("ERROR:")
     print(e)
+
 
 
 while True:
