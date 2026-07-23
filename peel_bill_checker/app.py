@@ -35,8 +35,8 @@ def get_config():
 
 CONFIG = get_config()
 
-PEEL_EMAIL = CONFIG.get("peel_email")
-PEEL_PASSWORD = CONFIG.get("peel_password")
+PEEL_EMAIL = CONFIG.get("email")
+PEEL_PASSWORD = CONFIG.get("password")
 
 
 
