@@ -1,4 +1,4 @@
-print("VERSION TEST 1.0.23")
+print("VERSION TEST 1.0.24")
 
 import os
 import re
