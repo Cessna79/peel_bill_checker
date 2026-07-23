@@ -4,6 +4,8 @@ FROM ${BUILD_FROM}
 
 WORKDIR /app
 
+RUN apk add --no-cache python3 py3-pip
+
 COPY app.py /app/app.py
 COPY requirements.txt /app/requirements.txt
 
