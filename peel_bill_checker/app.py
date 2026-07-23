@@ -1,25 +1,35 @@
 import json
 import os
 import time
+import bashio
 
 print("=" * 50)
 print("Peel Water Bill Checker")
 print("Version 1.0.0")
 print("=" * 50)
 
-OPTIONS = "/data/options.json"
 
-if os.path.exists(OPTIONS):
-    with open(OPTIONS) as f:
-        options = json.load(f)
+email = bashio.config.get("email")
+password = bashio.config.get("password")
 
-    print("Loaded options:")
-    print(options)
+print("Configured email:")
+print(email)
 
+if password:
+    print("Password received")
 else:
-    print("No options file found.")
+    print("No password configured")
 
-print("Addon started successfully.")
+
+print("Addon started successfully")
+
 
 while True:
-    time.sleep(60)
+    print("Checking water bill...")
+
+    # Future:
+    # login to Region of Peel
+    # check balance
+    # create sensor
+
+    time.sleep(3600)
