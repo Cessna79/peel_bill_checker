@@ -30,19 +30,27 @@ mqtt_host = options.get(
     "core-mosquitto"
 )
 
-mqtt_port = options.get(
-    "mqtt_port",
-    1883
+mqtt_port = int(
+    options.get(
+        "mqtt_port",
+        1883
+    )
 )
 
 
 print("Username loaded:", "YES" if username else "NO")
 print("Password loaded:", "YES" if password else "NO")
+print("MQTT Host:", mqtt_host)
+print("MQTT Port:", mqtt_port)
+
 
 
 def publish_mqtt(data):
 
     try:
+
+        print("Publishing MQTT...")
+
 
         discovery = {
 
@@ -92,7 +100,9 @@ def publish_mqtt(data):
 
             port=mqtt_port,
 
-            retain=True
+            retain=True,
+
+            timeout=10
 
         )
 
@@ -107,7 +117,9 @@ def publish_mqtt(data):
 
             port=mqtt_port,
 
-            retain=True
+            retain=True,
+
+            timeout=10
 
         )
 
@@ -122,12 +134,14 @@ def publish_mqtt(data):
 
             port=mqtt_port,
 
-            retain=True
+            retain=True,
+
+            timeout=10
 
         )
 
 
-        print("MQTT published")
+        print("MQTT published successfully")
 
 
     except Exception as e:
@@ -136,6 +150,7 @@ def publish_mqtt(data):
             "MQTT error:",
             e
         )
+
 
 
 def check_bill():
@@ -171,38 +186,27 @@ def check_bill():
 
 
     login_page = session.get(
-
         login_url,
-
-        headers=headers
-
+        headers=headers,
+        timeout=30
     )
 
 
     soup = BeautifulSoup(
-
         login_page.text,
-
         "html.parser"
-
     )
 
 
     token = soup.find(
-
         "input",
-
         {"name": "__RequestVerificationToken"}
-
     )
 
 
     ncform = soup.find(
-
         "input",
-
         {"name": "__ncforminfo"}
-
     )
 
 
@@ -239,7 +243,9 @@ def check_bill():
 
         files=payload,
 
-        headers=headers
+        headers=headers,
+
+        timeout=30
 
     )
 
@@ -270,7 +276,9 @@ def check_bill():
 
         billing_url,
 
-        headers=headers
+        headers=headers,
+
+        timeout=30
 
     )
 
@@ -291,11 +299,8 @@ def check_bill():
 
 
     text = soup.get_text(
-
         " ",
-
         strip=True
-
     )
 
 
@@ -317,7 +322,6 @@ def check_bill():
         amount = float(
 
             amount_match.group(1)
-
             .replace(",", "")
 
         )
@@ -328,7 +332,10 @@ def check_bill():
     )
 
 
-    section = text[position:position + 1000]
+    section = text[
+        position:
+        position + 1000
+    ]
 
 
     date_match = re.search(
@@ -343,6 +350,7 @@ def check_bill():
     if date_match:
 
         due_date = date_match.group(1)
+
 
 
     old_amount = None
@@ -389,13 +397,9 @@ def check_bill():
     with open(OUTPUT, "w") as f:
 
         json.dump(
-
             data,
-
             f,
-
             indent=4
-
         )
 
 
@@ -409,6 +413,11 @@ def check_bill():
 
     publish_mqtt(data)
 
+
+
+# Wait for Home Assistant services (MQTT)
+print("Waiting 30 seconds for Home Assistant services...")
+time.sleep(30)
 
 
 while True:
