@@ -1,18 +1,15 @@
-FROM python:3.12-slim
+ARG BUILD_FROM=ghcr.io/home-assistant/amd64-base:latest
+
+FROM ${BUILD_FROM}
 
 WORKDIR /app
 
-COPY requirements.txt .
-
-RUN pip3 install --no-cache-dir -r requirements.txt
-
-RUN pip3 install playwright
-
-RUN playwright install --with-deps chromium
-
-COPY app.py .
-COPY run.sh .
+COPY app.py /app/app.py
+COPY run.sh /app/run.sh
+COPY requirements.txt /app/requirements.txt
 
 RUN chmod +x /app/run.sh
+
+RUN pip3 install --no-cache-dir -r /app/requirements.txt
 
 CMD ["/app/run.sh"]
