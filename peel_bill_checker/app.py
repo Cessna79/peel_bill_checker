@@ -10,7 +10,7 @@ import paho.mqtt.publish as mqtt_publish
 
 print("=" * 50)
 print("Peel Water Bill Checker")
-print("Version 1.0.25")
+print("Version 1.0.26")
 print("=" * 50)
 
 
@@ -38,35 +38,80 @@ mqtt_port = int(
 )
 
 mqtt_username = options.get(
-    "mqtt_username",
-    ""
+    "mqtt_username"
 )
 
 mqtt_password = options.get(
-    "mqtt_password",
-    ""
+    "mqtt_password"
 )
 
 
-print("Username loaded:", "YES" if username else "NO")
-print("Password loaded:", "YES" if password else "NO")
-print("MQTT Host:", mqtt_host)
-print("MQTT Port:", mqtt_port)
-print("MQTT Username loaded:", "YES" if mqtt_username else "NO")
-print("MQTT Password loaded:", "YES" if mqtt_password else "NO")
+print(
+    "Username loaded:",
+    "YES" if username else "NO"
+)
+
+print(
+    "Password loaded:",
+    "YES" if password else "NO"
+)
+
+print(
+    "MQTT Host:",
+    mqtt_host
+)
+
+print(
+    "MQTT Port:",
+    mqtt_port
+)
+
+print(
+    "MQTT Username loaded:",
+    "YES" if mqtt_username else "NO"
+)
+
+print(
+    "MQTT Password loaded:",
+    "YES" if mqtt_password else "NO"
+)
 
 
-STATE_TOPIC = "homeassistant/sensor/peel_water_bill/state"
-ATTR_TOPIC = "homeassistant/sensor/peel_water_bill/attributes"
-CONFIG_TOPIC = "homeassistant/sensor/peel_water_bill/config"
+STATE_TOPIC = (
+    "homeassistant/sensor/peel_water_bill/state"
+)
+
+ATTR_TOPIC = (
+    "homeassistant/sensor/peel_water_bill/attributes"
+)
+
+CONFIG_TOPIC = (
+    "homeassistant/sensor/peel_water_bill/config"
+)
 
 
-def mqtt_auth():
+CHANGE_STATE_TOPIC = (
+    "homeassistant/binary_sensor/"
+    "peel_water_bill_changed/state"
+)
 
-    return {
-        "username": mqtt_username,
-        "password": mqtt_password
-    }
+CHANGE_CONFIG_TOPIC = (
+    "homeassistant/binary_sensor/"
+    "peel_water_bill_changed/config"
+)
+
+
+def mqtt_options():
+
+    data = {}
+
+    if mqtt_username:
+        data["auth"] = {
+            "username": mqtt_username,
+            "password": mqtt_password
+        }
+
+    return data
 
 
 
@@ -79,25 +124,33 @@ def publish_mqtt(data):
 
         discovery = {
 
-            "name": "Peel Water Bill",
+            "name":
+                "Peel Water Bill",
 
-            "unique_id": "peel_water_bill",
+            "unique_id":
+                "peel_water_bill",
 
-            "state_topic": STATE_TOPIC,
+            "state_topic":
+                STATE_TOPIC,
 
-            "json_attributes_topic": ATTR_TOPIC,
+            "json_attributes_topic":
+                ATTR_TOPIC,
 
-            "unit_of_measurement": "$",
+            "unit_of_measurement":
+                "$",
 
-            "device_class": "monetary",
+            "device_class":
+                "monetary",
 
-            "icon": "mdi:water",
+            "icon":
+                "mdi:water",
 
             "device": {
 
-                "identifiers": [
-                    "peel_bill_checker"
-                ],
+                "identifiers":
+                    [
+                        "peel_bill_checker"
+                    ],
 
                 "name":
                     "Peel Water Bill Checker",
@@ -109,6 +162,45 @@ def publish_mqtt(data):
                     "Home Assistant Addon"
 
             }
+
+        }
+
+
+        change_discovery = {
+
+            "name":
+                "Peel Water Bill New Bill",
+
+            "unique_id":
+                "peel_water_bill_new_bill",
+
+            "state_topic":
+                CHANGE_STATE_TOPIC,
+
+            "payload_on":
+                "ON",
+
+            "payload_off":
+                "OFF",
+
+            "device_class":
+                "update",
+
+            "icon":
+                "mdi:file-document-alert",
+
+            "device": {
+
+                "identifiers":
+                    [
+                        "peel_bill_checker"
+                    ],
+
+                "name":
+                    "Peel Water Bill Checker"
+
+            }
+
         }
 
 
@@ -118,7 +210,17 @@ def publish_mqtt(data):
             hostname=mqtt_host,
             port=mqtt_port,
             retain=True,
-            auth=mqtt_auth()
+            **mqtt_options()
+        )
+
+
+        mqtt_publish.single(
+            CHANGE_CONFIG_TOPIC,
+            payload=json.dumps(change_discovery),
+            hostname=mqtt_host,
+            port=mqtt_port,
+            retain=True,
+            **mqtt_options()
         )
 
 
@@ -128,7 +230,7 @@ def publish_mqtt(data):
             hostname=mqtt_host,
             port=mqtt_port,
             retain=True,
-            auth=mqtt_auth()
+            **mqtt_options()
         )
 
 
@@ -138,11 +240,23 @@ def publish_mqtt(data):
             hostname=mqtt_host,
             port=mqtt_port,
             retain=True,
-            auth=mqtt_auth()
+            **mqtt_options()
         )
 
 
-        print("MQTT published successfully")
+        mqtt_publish.single(
+            CHANGE_STATE_TOPIC,
+            payload="ON" if data["changed"] else "OFF",
+            hostname=mqtt_host,
+            port=mqtt_port,
+            retain=True,
+            **mqtt_options()
+        )
+
+
+        print(
+            "MQTT published successfully"
+        )
 
 
     except Exception as e:
@@ -151,10 +265,7 @@ def publish_mqtt(data):
             "MQTT error:",
             e
         )
-
-
-
-def check_bill():
+        def check_bill():
 
     session = requests.Session()
 
@@ -212,6 +323,7 @@ def check_bill():
 
 
     if not token or not ncform:
+
         raise Exception(
             "Login tokens missing"
         )
@@ -255,12 +367,15 @@ def check_bill():
 
 
     if "redirectToUrl" not in result:
+
         raise Exception(
             "Login failed"
         )
 
 
-    print("LOGIN SUCCESS")
+    print(
+        "LOGIN SUCCESS"
+    )
 
 
     billing_url = (
@@ -360,9 +475,11 @@ def check_bill():
 
     data = {
 
-        "amount_due": amount,
+        "amount_due":
+            amount,
 
-        "due_date": due_date,
+        "due_date":
+            due_date,
 
         "status":
             "Outstanding"
@@ -383,7 +500,10 @@ def check_bill():
     }
 
 
-    with open(OUTPUT, "w") as f:
+    with open(
+        OUTPUT,
+        "w"
+    ) as f:
 
         json.dump(
             data,
@@ -401,8 +521,6 @@ def check_bill():
 
 
     publish_mqtt(data)
-
-
 
 print(
     "Waiting 30 seconds for Home Assistant services..."
