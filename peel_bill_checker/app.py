@@ -1,4 +1,4 @@
-print("Starting Peel Water Bill Checker VERSION 1.0.27")
+print("Starting Peel Water Bill Checker VERSION 1.0.28")
 
 import os
 import re
@@ -6,10 +6,9 @@ import json
 import time
 import requests
 
-from playwright.sync_api import (
-    sync_playwright,
-    TimeoutError as PlaywrightTimeoutError
-)
+from selenium import webdriver
+from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.common.by import By
 
 
 PEEL_LOGIN = "https://peelregion.idoxs.ca/home"
@@ -47,7 +46,6 @@ def notify(message):
         print("No HA token")
         return
 
-
     try:
 
         requests.post(
@@ -68,7 +66,6 @@ def notify(message):
 
         print("Notification sent")
 
-
     except Exception as e:
         print("Notification error:", e)
 
@@ -76,14 +73,8 @@ def notify(message):
 
 def save_bill(data):
 
-    try:
-
-        with open(LAST_FILE,"w") as f:
-            json.dump(data,f)
-
-    except Exception as e:
-        print("Save error:",e)
-
+    with open(LAST_FILE, "w") as f:
+        json.dump(data, f)
 
 
 
@@ -91,7 +82,7 @@ def load_bill():
 
     try:
 
-        with open(LAST_FILE,"r") as f:
+        with open(LAST_FILE, "r") as f:
             return json.load(f)
 
     except:
@@ -100,99 +91,109 @@ def load_bill():
 
 
 
+def create_driver():
 
-def login(page):
+    options = Options()
 
+    options.add_argument("--headless")
+    options.add_argument("--no-sandbox")
+    options.add_argument("--disable-dev-shm-usage")
+    options.add_argument("--disable-gpu")
+    options.add_argument("--window-size=1920,1080")
 
-    for attempt in range(1,4):
+    driver = webdriver.Chrome(
+        options=options
+    )
 
-        print(f"Login attempt {attempt}/3")
-
-
-        try:
-
-
-            page.goto(
-                PEEL_LOGIN,
-                wait_until="domcontentloaded",
-                timeout=60000
-            )
-
-
-            print("Login page loaded")
-
-
-            page.wait_for_selector(
-                "#bannerSignInUsername",
-                timeout=30000
-            )
-
-
-            print("Login form found")
-
-
-            page.fill(
-                "#bannerSignInUsername",
-                PEEL_EMAIL
-            )
-
-
-            page.fill(
-                "#bannerSignInPassword",
-                PEEL_PASSWORD
-            )
-
-
-            print("Credentials entered")
-
-
-            page.click("#btnSignIn")
-
-
-            page.wait_for_timeout(5000)
-
-
-            print(
-                "After login:",
-                page.url
-            )
-
-
-            if "billing" in page.url:
-
-                return True
+    return driver
 
 
 
-        except Exception as e:
+def login(driver):
 
-            print(
-                f"Login attempt {attempt} failed:",
-                e
-            )
+    print("Opening Peel login")
 
-            time.sleep(5)
+    driver.get(PEEL_LOGIN)
 
+    time.sleep(5)
+
+    print("Login page loaded")
+
+
+    try:
+
+        email = driver.find_element(
+            By.ID,
+            "bannerSignInUsername"
+        )
+
+        password = driver.find_element(
+            By.ID,
+            "bannerSignInPassword"
+        )
+
+        print("Login form found")
+
+
+        email.send_keys(
+            PEEL_EMAIL
+        )
+
+        password.send_keys(
+            PEEL_PASSWORD
+        )
+
+
+        button = driver.find_element(
+            By.ID,
+            "btnSignIn"
+        )
+
+        button.click()
+
+
+        time.sleep(8)
+
+
+        print(
+            "After login:",
+            driver.current_url
+        )
+
+
+        if "billing" in driver.current_url:
+
+            return True
+
+
+    except Exception as e:
+
+        print(
+            "Login error:",
+            e
+        )
 
 
     return False
 
 
 
-
-
 def extract_bill(text):
-
 
     print("Searching account activity")
 
 
-    text=text.replace("\xa0"," ")
+    text = text.replace(
+        "\xa0",
+        " "
+    )
 
-    text=" ".join(text.split())
+    text = " ".join(
+        text.split()
+    )
 
 
-    matches=re.findall(
+    matches = re.findall(
 
         r"You had a bill for\s+\$([\d,]+\.\d+)\s+due on\s+([A-Za-z]+\s+\d+,\s+\d{4})",
 
@@ -204,29 +205,30 @@ def extract_bill(text):
     if not matches:
 
         print("No bill history found")
+
         return None
 
 
 
-    amount,due=matches[0]
+    amount, due = matches[0]
 
 
-    bill={
+    bill = {
 
-        "amount":"$"+amount,
+        "amount": "$" + amount,
 
-        "due":due
+        "due": due
 
     }
 
 
-    print("Bill found:",bill)
+    print(
+        "Bill extracted:",
+        bill
+    )
 
 
     return bill
-
-
-
 
 
 
@@ -238,172 +240,124 @@ def check_bill():
     if not PEEL_EMAIL or not PEEL_PASSWORD:
 
         print("Missing Peel credentials")
+
         return
 
 
 
-    with sync_playwright() as p:
+    driver = None
 
 
-        browser=None
+    try:
+
+        driver = create_driver()
 
 
-        try:
+        if not login(driver):
+
+            print("Login failed")
+
+            return
 
 
-            browser=p.chromium.launch(
 
-                headless=True,
+        print("Opening billing home")
 
-                executable_path="/usr/bin/chromium"
+
+        driver.get(
+            PEEL_HOME
+        )
+
+
+        time.sleep(5)
+
+
+        print(
+            "Current URL:",
+            driver.current_url
+        )
+
+
+        html = driver.page_source
+
+
+        with open(
+            "/data/peel_debug.html",
+            "w",
+            encoding="utf-8"
+        ) as f:
+
+            f.write(html)
+
+
+
+        text = driver.find_element(
+            By.TAG_NAME,
+            "body"
+        ).text
+
+
+
+        print(
+            text[:3000]
+        )
+
+
+
+        bill = extract_bill(text)
+
+
+        if not bill:
+
+            return
+
+
+
+        old = load_bill()
+
+
+        if old != bill:
+
+
+            print("New bill detected")
+
+
+            save_bill(
+                bill
+            )
+
+
+            notify(
+
+                f"New Region of Peel water bill\n\n"
+                f"Amount: {bill['amount']}\n"
+                f"Due: {bill['due']}"
 
             )
 
 
-        except:
+        else:
 
+            print("No new bill")
 
-            browser=p.chromium.launch(
 
-                headless=True
 
-            )
+    except Exception as e:
 
+        print(
+            "Error:",
+            e
+        )
 
 
-        page=browser.new_page()
+    finally:
 
+        if driver:
 
+            driver.quit()
 
-        try:
 
 
-            if not login(page):
-
-                print("Login failed")
-                return
-
-
-
-            print("Opening billing home")
-
-
-            page.goto(
-
-                PEEL_HOME,
-
-                wait_until="domcontentloaded",
-
-                timeout=60000
-
-            )
-
-
-            print(
-
-                "Current URL:",
-                page.url
-
-            )
-
-
-            page.wait_for_timeout(5000)
-
-
-
-            html=page.content()
-
-
-
-            with open(
-
-                "/data/peel_debug.html",
-
-                "w",
-
-                encoding="utf-8"
-
-            ) as f:
-
-                f.write(html)
-
-
-
-            text=page.locator(
-
-                "body"
-
-            ).inner_text()
-
-
-
-            print(text[:3000])
-
-
-
-            bill=extract_bill(text)
-
-
-
-            if not bill:
-
-                return
-
-
-
-            old=load_bill()
-
-
-
-            if old != bill:
-
-
-                print("New bill detected")
-
-
-                save_bill(bill)
-
-
-                notify(
-
-                    "New Region of Peel water bill\n\n"
-
-                    f"Amount: {bill['amount']}\n"
-
-                    f"Due: {bill['due']}"
-
-                )
-
-
-            else:
-
-                print("No new bill")
-
-
-
-
-        except PlaywrightTimeoutError as e:
-
-            print("Timeout:",e)
-
-
-
-        except Exception as e:
-
-            print("Error:",e)
-
-
-
-        finally:
-
-
-            browser.close()
-
-
-
-
-
-
-if __name__=="__main__":
+if __name__ == "__main__":
 
     check_bill()
