@@ -1,7 +1,7 @@
-#!/usr/bin/with-contenv bashio
+#!/bin/bash
 
 echo "=================================="
 echo "Peel Water Bill Checker Starting"
 echo "=================================="
 
-python3 -u /app/app.py
+exec python3 -u /app/app.py
