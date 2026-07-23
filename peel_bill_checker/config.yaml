@@ -9,6 +9,8 @@ arch:
 startup: application
 boot: auto
 
+init: false
+
 options:
   email: ""
   password: ""
