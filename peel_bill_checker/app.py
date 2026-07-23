@@ -10,7 +10,7 @@ import paho.mqtt.publish as mqtt_publish
 
 print("=" * 50)
 print("Peel Water Bill Checker")
-print("Version 1.0.22")
+print("Version 1.0.23")
 print("=" * 50)
 
 
@@ -47,6 +47,7 @@ print("MQTT Port:", mqtt_port)
 STATE_TOPIC = "homeassistant/sensor/peel_water_bill/state"
 ATTR_TOPIC = "homeassistant/sensor/peel_water_bill/attributes"
 CONFIG_TOPIC = "homeassistant/sensor/peel_water_bill/config"
+
 
 
 def publish_mqtt(data):
@@ -86,7 +87,6 @@ def publish_mqtt(data):
 
                 "model":
                     "Home Assistant Addon"
-
             }
         }
 
@@ -96,8 +96,7 @@ def publish_mqtt(data):
             payload=json.dumps(discovery),
             hostname=mqtt_host,
             port=mqtt_port,
-            retain=True,
-            timeout=10
+            retain=True
         )
 
 
@@ -106,8 +105,7 @@ def publish_mqtt(data):
             payload=str(data["amount_due"]),
             hostname=mqtt_host,
             port=mqtt_port,
-            retain=True,
-            timeout=10
+            retain=True
         )
 
 
@@ -116,8 +114,7 @@ def publish_mqtt(data):
             payload=json.dumps(data),
             hostname=mqtt_host,
             port=mqtt_port,
-            retain=True,
-            timeout=10
+            retain=True
         )
 
 
@@ -304,6 +301,7 @@ def check_bill():
             position:
             position + 1000
         ]
+
 
         date_match = re.search(
             r"([A-Za-z]+\s+\d{1,2},\s+\d{4})",
