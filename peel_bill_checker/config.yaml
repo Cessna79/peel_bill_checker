@@ -1,10 +1,12 @@
 name: Peel Water Bill Checker
-version: "1.0.21"
+version: "1.0.22"
 slug: peel_bill_checker
 description: Checks Region of Peel water bills
 
 arch:
   - amd64
+
+init: false
 
 startup: application
 boot: auto
@@ -16,7 +18,7 @@ options:
   mqtt_port: 1883
 
 schema:
-  email: email
+  email: str
   password: password
   mqtt_host: str
-  mqtt_port: port
+  mqtt_port: int
