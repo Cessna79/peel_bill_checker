@@ -10,7 +10,7 @@ import paho.mqtt.publish as mqtt_publish
 
 print("=" * 50)
 print("Peel Water Bill Checker")
-print("Version 1.0.20")
+print("Version 1.0.21")
 print("=" * 50)
 
 
