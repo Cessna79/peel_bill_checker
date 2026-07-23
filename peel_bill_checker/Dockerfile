@@ -1,19 +1,18 @@
-ARG BUILD_FROM=ghcr.io/home-assistant/amd64-base:latest
-
-FROM ${BUILD_FROM}
+FROM ghcr.io/home-assistant/amd64-base:latest
 
 WORKDIR /app
 
 RUN apk add --no-cache \
     python3 \
-    py3-pip \
-    chromium \
-    chromium-chromedriver
+    py3-pip
 
-COPY requirements.txt /app/requirements.txt
+COPY requirements.txt /app/
 
-RUN pip3 install --no-cache-dir --break-system-packages -r /app/requirements.txt
+RUN pip3 install --no-cache-dir --break-system-packages -r requirements.txt
 
-COPY app.py /app/app.py
+COPY app.py /app/
+COPY run.sh /
 
-CMD ["python3", "/app/app.py"]
+RUN chmod +x /run.sh
+
+CMD ["/run.sh"]
