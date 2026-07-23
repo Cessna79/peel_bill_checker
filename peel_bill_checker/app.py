@@ -3,18 +3,21 @@ from bs4 import BeautifulSoup
 import json
 import time
 import re
+from datetime import datetime
 
 
 print("=" * 50)
 print("Peel Water Bill Checker")
-print("Version 1.0.12")
+print("Version 1.0.13")
 print("=" * 50)
 
 
 OPTIONS = "/data/options.json"
+OUTPUT = "/data/peel_bill.json"
 
 
-# Load Home Assistant addon options
+# Load addon settings
+
 with open(OPTIONS) as f:
     options = json.load(f)
 
@@ -33,8 +36,7 @@ session = requests.Session()
 headers = {
     "User-Agent":
         "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
-        "AppleWebKit/537.36 "
-        "Chrome/150.0 Safari/537.36",
+        "AppleWebKit/537.36 Chrome/150 Safari/537.36",
 
     "Accept":
         "application/json",
@@ -59,20 +61,14 @@ try:
     print("Opening login page...")
 
 
-    page = session.get(
+    login_page = session.get(
         login_url,
         headers=headers
     )
 
 
-    print(
-        "Login page status:",
-        page.status_code
-    )
-
-
     soup = BeautifulSoup(
-        page.text,
+        login_page.text,
         "html.parser"
     )
 
@@ -114,8 +110,6 @@ try:
     }
 
 
-    print("Tokens received")
-
     print("Submitting login...")
 
 
@@ -126,59 +120,48 @@ try:
     )
 
 
-    print()
     print("Login response:")
     print(response.text)
 
 
-    result = response.json()
+    login_result = response.json()
 
 
-    if "redirectToUrl" not in result:
+    if "redirectToUrl" not in login_result:
 
         raise Exception(
-            "Login unsuccessful"
+            "Login failed"
         )
 
 
-    print()
     print("LOGIN SUCCESS")
 
 
     billing_url = (
         "https://peelregion.idoxs.ca"
-        + result["redirectToUrl"]
+        + login_result["redirectToUrl"]
     )
 
 
-    print()
-    print("Opening billing page:")
-    print(billing_url)
+    print("Opening billing page...")
 
 
     billing = session.get(
         billing_url,
-        headers={
-            "User-Agent":
-            headers["User-Agent"]
-        }
+        headers=headers
     )
 
 
-    print()
     print(
         "Billing status:",
         billing.status_code
     )
 
 
-    print(
-        "Billing page size:",
-        len(billing.text)
-    )
+    html = billing.text
 
 
-    # Save HTML for backup/debug
+    # Save page for debugging
 
     with open(
         "/tmp/billing.html",
@@ -186,108 +169,132 @@ try:
         encoding="utf-8"
     ) as f:
 
-        f.write(
-            billing.text
-        )
+        f.write(html)
 
 
-    print("Billing HTML saved")
+    soup = BeautifulSoup(
+        html,
+        "html.parser"
+    )
+
+
+    clean_text = soup.get_text(
+        " ",
+        strip=True
+    )
 
 
     print()
     print("=" * 50)
-    print("Searching billing page")
+    print("Extracting bill information")
     print("=" * 50)
 
 
-    text = billing.text
+    bill_amount = None
+    due_date = None
 
 
-    keywords = [
-        "amount",
-        "balance",
-        "due",
-        "bill",
-        "payment",
-        "account"
+    # Find Amount Due
+
+    amount_match = re.search(
+        r"Amount Due\*?\s*\$([\d,]+\.\d{2})",
+        clean_text
+    )
+
+
+    if amount_match:
+
+        bill_amount = (
+            amount_match.group(1)
+            .replace(",", "")
+        )
+
+        print(
+            "Amount Due:",
+            bill_amount
+        )
+
+
+    else:
+
+        print(
+            "Amount Due not found"
+        )
+
+
+    # Try to find due date
+
+    date_patterns = [
+
+        r"Due Date\s*([A-Za-z]+\s+\d{1,2},\s+\d{4})",
+
+        r"due on\s*([A-Za-z]+\s+\d{1,2},\s+\d{4})",
+
+        r"Payment Due\s*([A-Za-z]+\s+\d{1,2},\s+\d{4})"
+
     ]
 
 
-    lower_text = text.lower()
+    for pattern in date_patterns:
 
+        match = re.search(
+            pattern,
+            clean_text,
+            re.IGNORECASE
+        )
 
-    for word in keywords:
+        if match:
 
-        if word in lower_text:
+            due_date = match.group(1)
 
             print(
-                "Found keyword:",
-                word
+                "Due Date:",
+                due_date
             )
 
-
-    print()
-    print("=" * 50)
-    print("Dollar amount details")
-    print("=" * 50)
+            break
 
 
-    amounts_found = set()
+    if not due_date:
 
-
-    for match in re.finditer(
-        r"\$[\d,]+\.\d{2}",
-        text
-    ):
-
-
-        amount = match.group()
-
-
-        if amount in amounts_found:
-            continue
-
-
-        amounts_found.add(amount)
-
-
-        start = max(
-            0,
-            match.start() - 200
-        )
-
-        end = min(
-            len(text),
-            match.end() + 200
+        print(
+            "Due date not found"
         )
 
 
-        nearby = text[start:end]
+    result = {
+
+        "amount_due":
+            bill_amount,
+
+        "due_date":
+            due_date,
+
+        "checked":
+            datetime.now().isoformat(),
+
+        "status":
+            "success"
+
+    }
 
 
-        # Clean HTML
-        nearby = BeautifulSoup(
-            nearby,
-            "html.parser"
-        ).get_text(
-            " ",
-            strip=True
+    with open(
+        OUTPUT,
+        "w",
+        encoding="utf-8"
+    ) as f:
+
+        json.dump(
+            result,
+            f,
+            indent=4
         )
-
-
-        print()
-        print("AMOUNT FOUND:")
-        print(amount)
-
-        print("CONTEXT:")
-        print(nearby)
-
-        print("-" * 60)
-
 
 
     print()
-    print("Extraction complete")
+    print("Saved:")
+    print(json.dumps(result, indent=4))
 
 
 except Exception as e:
@@ -295,7 +302,6 @@ except Exception as e:
     print()
     print("ERROR:")
     print(e)
-
 
 
 print()
