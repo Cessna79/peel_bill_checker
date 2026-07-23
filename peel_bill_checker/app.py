@@ -10,7 +10,7 @@ import paho.mqtt.publish as mqtt_publish
 
 print("=" * 50)
 print("Peel Water Bill Checker")
-print("Version 1.0.26")
+print("Version 1.0.27")
 print("=" * 50)
 
 
@@ -267,7 +267,7 @@ def publish_mqtt(data):
         )
         def check_bill():
 
-    session = requests.Session()
+            session = requests.Session()
 
 
     headers = {
