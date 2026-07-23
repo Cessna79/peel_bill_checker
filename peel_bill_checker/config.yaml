@@ -1,16 +1,12 @@
 name: Peel Water Bill Checker
-version: "1.0.0"
+version: "1.0.31"
 slug: peel_bill_checker
-description: Checks Region of Peel water bills.
-url: https://github.com/Cessna79/peel_bill_checker
-
+description: Checks Region of Peel water bills
 arch:
   - amd64
 
-startup: services
+startup: application
 boot: auto
-
-init: false
 
 options:
   email: ""
@@ -19,3 +15,5 @@ options:
 schema:
   email: str
   password: password
+
+image: "ghcr.io/home-assistant/{arch}-base-python"
