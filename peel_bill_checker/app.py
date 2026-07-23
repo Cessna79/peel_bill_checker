@@ -1,4 +1,4 @@
-print("VERSION TEST 1.0.21")
+print("VERSION TEST 1.0.22")
 
 import os
 import re
@@ -6,8 +6,8 @@ import json
 import time
 import requests
 
-from playwright.sync_api import (
-    sync_playwright,
+from selenium import webdriver
+from selenium.webdriver.chrome.options import Options
     TimeoutError as PlaywrightTimeoutError
 )
 
