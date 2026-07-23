@@ -1,10 +1,9 @@
-FROM ghcr.io/home-assistant/amd64-base:latest
+ARG BUILD_FROM
+FROM ${BUILD_FROM}
 
 WORKDIR /app
 
-RUN apk add --no-cache \
-    python3 \
-    py3-pip
+RUN apk add --no-cache python3 py3-pip
 
 COPY requirements.txt /app/
 
