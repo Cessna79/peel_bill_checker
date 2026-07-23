@@ -1,5 +1,5 @@
 name: Peel Water Bill Checker
-version: "1.0.27"
+version: "1.0.28"
 slug: peel_bill_checker
 description: Checks Region of Peel water bills and publishes to Home Assistant MQTT
 
