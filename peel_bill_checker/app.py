@@ -1,4 +1,4 @@
-print("Starting Peel Water Bill Checker VERSION 1.0.29")
+print("Starting Peel Water Bill Checker VERSION 1.0.30")
 
 import os
 import re
@@ -35,8 +35,8 @@ def get_config():
 
 CONFIG = get_config()
 
-PEEL_EMAIL = CONFIG.get("email")
-PEEL_PASSWORD = CONFIG.get("password")
+PEEL_EMAIL = CONFIG.get("peel_email")
+PEEL_PASSWORD = CONFIG.get("peel_password")
 
 
 
