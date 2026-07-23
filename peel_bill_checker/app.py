@@ -10,7 +10,7 @@ import paho.mqtt.publish as mqtt_publish
 
 print("=" * 50)
 print("Peel Water Bill Checker")
-print("Version 1.0.24")
+print("Version 1.0.25")
 print("=" * 50)
 
 
@@ -37,16 +37,36 @@ mqtt_port = int(
     )
 )
 
+mqtt_username = options.get(
+    "mqtt_username",
+    ""
+)
+
+mqtt_password = options.get(
+    "mqtt_password",
+    ""
+)
+
 
 print("Username loaded:", "YES" if username else "NO")
 print("Password loaded:", "YES" if password else "NO")
 print("MQTT Host:", mqtt_host)
 print("MQTT Port:", mqtt_port)
+print("MQTT Username loaded:", "YES" if mqtt_username else "NO")
+print("MQTT Password loaded:", "YES" if mqtt_password else "NO")
 
 
 STATE_TOPIC = "homeassistant/sensor/peel_water_bill/state"
 ATTR_TOPIC = "homeassistant/sensor/peel_water_bill/attributes"
 CONFIG_TOPIC = "homeassistant/sensor/peel_water_bill/config"
+
+
+def mqtt_auth():
+
+    return {
+        "username": mqtt_username,
+        "password": mqtt_password
+    }
 
 
 
@@ -87,6 +107,7 @@ def publish_mqtt(data):
 
                 "model":
                     "Home Assistant Addon"
+
             }
         }
 
@@ -96,7 +117,8 @@ def publish_mqtt(data):
             payload=json.dumps(discovery),
             hostname=mqtt_host,
             port=mqtt_port,
-            retain=True
+            retain=True,
+            auth=mqtt_auth()
         )
 
 
@@ -105,7 +127,8 @@ def publish_mqtt(data):
             payload=str(data["amount_due"]),
             hostname=mqtt_host,
             port=mqtt_port,
-            retain=True
+            retain=True,
+            auth=mqtt_auth()
         )
 
 
@@ -114,7 +137,8 @@ def publish_mqtt(data):
             payload=json.dumps(data),
             hostname=mqtt_host,
             port=mqtt_port,
-            retain=True
+            retain=True,
+            auth=mqtt_auth()
         )
 
 
@@ -188,7 +212,6 @@ def check_bill():
 
 
     if not token or not ncform:
-
         raise Exception(
             "Login tokens missing"
         )
@@ -232,7 +255,6 @@ def check_bill():
 
 
     if "redirectToUrl" not in result:
-
         raise Exception(
             "Login failed"
         )
@@ -338,11 +360,9 @@ def check_bill():
 
     data = {
 
-        "amount_due":
-            amount,
+        "amount_due": amount,
 
-        "due_date":
-            due_date,
+        "due_date": due_date,
 
         "status":
             "Outstanding"
@@ -363,10 +383,7 @@ def check_bill():
     }
 
 
-    with open(
-        OUTPUT,
-        "w"
-    ) as f:
+    with open(OUTPUT, "w") as f:
 
         json.dump(
             data,
