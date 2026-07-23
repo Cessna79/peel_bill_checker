@@ -25,8 +25,15 @@ with open(OPTIONS) as f:
 username = options.get("email")
 password = options.get("password")
 
-mqtt_host = "core-mosquitto"
-mqtt_port = 1883
+mqtt_host = options.get(
+    "mqtt_host",
+    "core-mosquitto"
+)
+
+mqtt_port = options.get(
+    "mqtt_port",
+    1883
+)
 
 
 print("Username loaded:", "YES" if username else "NO")
