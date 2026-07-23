@@ -10,7 +10,7 @@ import paho.mqtt.publish as mqtt_publish
 
 print("=" * 50)
 print("Peel Water Bill Checker")
-print("Version 1.0.17")
+print("Version 1.0.18")
 print("=" * 50)
 
 
@@ -44,6 +44,10 @@ print("MQTT Host:", mqtt_host)
 print("MQTT Port:", mqtt_port)
 
 
+STATE_TOPIC = "homeassistant/sensor/peel_water_bill/state"
+ATTR_TOPIC = "homeassistant/sensor/peel_water_bill/attributes"
+CONFIG_TOPIC = "homeassistant/sensor/peel_water_bill/config"
+
 
 def publish_mqtt(data):
 
@@ -58,11 +62,9 @@ def publish_mqtt(data):
 
             "unique_id": "peel_water_bill",
 
-            "state_topic":
-                "homeassistant/sensor/peel_water_bill/state",
+            "state_topic": STATE_TOPIC,
 
-            "json_attributes_topic":
-                "homeassistant/sensor/peel_water_bill/attributes",
+            "json_attributes_topic": ATTR_TOPIC,
 
             "unit_of_measurement": "$",
 
@@ -86,58 +88,36 @@ def publish_mqtt(data):
                     "Home Assistant Addon"
 
             }
-
         }
 
 
         mqtt_publish.single(
-
-            "homeassistant/sensor/peel_water_bill/config",
-
+            CONFIG_TOPIC,
             payload=json.dumps(discovery),
-
             hostname=mqtt_host,
-
             port=mqtt_port,
-
             retain=True,
-
             timeout=10
-
         )
 
 
         mqtt_publish.single(
-
-            "homeassistant/sensor/peel_water_bill/state",
-
+            STATE_TOPIC,
             payload=str(data["amount_due"]),
-
             hostname=mqtt_host,
-
             port=mqtt_port,
-
             retain=True,
-
             timeout=10
-
         )
 
 
         mqtt_publish.single(
-
-            "homeassistant/sensor/peel_water_bill/attributes",
-
+            ATTR_TOPIC,
             payload=json.dumps(data),
-
             hostname=mqtt_host,
-
             port=mqtt_port,
-
             retain=True,
-
             timeout=10
-
         )
 
 
@@ -238,15 +218,16 @@ def check_bill():
 
 
     response = session.post(
-
         login_url,
-
         files=payload,
-
         headers=headers,
-
         timeout=30
+    )
 
+
+    print(
+        "Login response:",
+        response.text[:100]
     )
 
 
@@ -264,22 +245,15 @@ def check_bill():
 
 
     billing_url = (
-
         "https://peelregion.idoxs.ca"
-
         + result["redirectToUrl"]
-
     )
 
 
     billing = session.get(
-
         billing_url,
-
         headers=headers,
-
         timeout=30
-
     )
 
 
@@ -290,11 +264,8 @@ def check_bill():
 
 
     soup = BeautifulSoup(
-
         billing.text,
-
         "html.parser"
-
     )
 
 
@@ -309,21 +280,16 @@ def check_bill():
 
 
     amount_match = re.search(
-
         r"Amount Due\*?\s*\$([\d,]+\.\d{2})",
-
         text
-
     )
 
 
     if amount_match:
 
         amount = float(
-
             amount_match.group(1)
             .replace(",", "")
-
         )
 
 
@@ -332,24 +298,22 @@ def check_bill():
     )
 
 
-    section = text[
-        position:
-        position + 1000
-    ]
+    if position >= 0:
+
+        section = text[
+            position:
+            position + 1000
+        ]
+
+        date_match = re.search(
+            r"([A-Za-z]+\s+\d{1,2},\s+\d{4})",
+            section
+        )
 
 
-    date_match = re.search(
+        if date_match:
 
-        r"([A-Za-z]+\s+\d{1,2},\s+\d{4})",
-
-        section
-
-    )
-
-
-    if date_match:
-
-        due_date = date_match.group(1)
+            due_date = date_match.group(1)
 
 
 
@@ -358,13 +322,20 @@ def check_bill():
 
     if os.path.exists(OUTPUT):
 
-        with open(OUTPUT) as f:
+        try:
 
-            old = json.load(f)
+            with open(OUTPUT) as f:
 
-            old_amount = old.get(
-                "amount_due"
-            )
+                old = json.load(f)
+
+                old_amount = old.get(
+                    "amount_due"
+                )
+
+        except:
+
+            pass
+
 
 
     data = {
@@ -394,7 +365,10 @@ def check_bill():
     }
 
 
-    with open(OUTPUT, "w") as f:
+    with open(
+        OUTPUT,
+        "w"
+    ) as f:
 
         json.dump(
             data,
@@ -415,9 +389,12 @@ def check_bill():
 
 
 
-# Wait for Home Assistant services (MQTT)
-print("Waiting 30 seconds for Home Assistant services...")
+print(
+    "Waiting 30 seconds for Home Assistant services..."
+)
+
 time.sleep(30)
+
 
 
 while True:
