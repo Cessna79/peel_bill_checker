@@ -1,14 +1,17 @@
-name: Peel Water Bill Checker
-version: "1.0.24"
-slug: peel_bill_checker
-description: Checks Region of Peel water bills
+name: "Peel Water Bill Checker"
+version: "1.0.30"
+slug: "peel_bill_checker"
+description: "Checks Region of Peel water bills"
 arch:
   - amd64
+
 startup: application
 boot: auto
+
 options:
   email: ""
   password: ""
+
 schema:
   email: str
   password: password
