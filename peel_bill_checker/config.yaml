@@ -1,5 +1,5 @@
 name: Peel Water Bill Checker
-version: "1.0.20"
+version: "1.0.21"
 slug: peel_bill_checker
 description: Checks Region of Peel water bills
 
@@ -16,7 +16,7 @@ options:
   mqtt_port: 1883
 
 schema:
-  email: str
+  email: email
   password: password
   mqtt_host: str
-  mqtt_port: int
+  mqtt_port: port
