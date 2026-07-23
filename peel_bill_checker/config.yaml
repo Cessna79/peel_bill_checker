@@ -14,7 +14,11 @@ init: false
 options:
   email: ""
   password: ""
+  mqtt_host: "core-mosquitto"
+  mqtt_port: 1883
 
 schema:
   email: str
   password: password
+  mqtt_host: str
+  mqtt_port: int
