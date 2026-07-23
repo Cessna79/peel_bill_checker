@@ -5,7 +5,7 @@ import time
 
 print("=" * 50)
 print("Peel Water Bill Checker")
-print("Login Inspector")
+print("Login Test")
 print("=" * 50)
 
 
@@ -13,7 +13,7 @@ with open("/data/options.json") as f:
     options = json.load(f)
 
 
-email = options.get("email")
+username = options.get("email")
 password = options.get("password")
 
 
@@ -24,36 +24,82 @@ login_url = "https://peelregion.idoxs.ca/authentication/login"
 
 try:
 
-    print("Opening login page...")
+    print("Getting login page...")
 
-    r = session.get(login_url)
+    response = session.get(login_url)
 
-    print("Status:", r.status_code)
-
-    print("Cookies:")
-    print(session.cookies)
+    soup = BeautifulSoup(response.text, "lxml")
 
 
-    soup = BeautifulSoup(r.text, "lxml")
+    token = soup.find(
+        "input",
+        {"name": "__RequestVerificationToken"}
+    )["value"]
 
 
-    print("\nForms found:")
+    ncform = soup.find(
+        "input",
+        {"name": "__ncforminfo"}
+    )["value"]
 
-    for form in soup.find_all("form"):
-        print("----------------")
-        print("Action:", form.get("action"))
 
-        for inp in form.find_all("input"):
-            print(
-                inp.get("name"),
-                inp.get("type"),
-                inp.get("value")
-            )
+    print("Tokens received")
+
+
+    login_data = {
+
+        "username": username,
+        "password": password,
+
+        "__RequestVerificationToken": token,
+
+        "__ncforminfo": ncform
+    }
+
+
+    print("Sending login...")
+
+
+    result = session.post(
+        login_url,
+        data=login_data,
+        allow_redirects=True
+    )
+
+
+    print("Login status:", result.status_code)
+
+    print("Final URL:")
+    print(result.url)
+
+
+    if "logout" in result.text.lower():
+
+        print("LOGIN SUCCESS")
+
+    else:
+
+        print("LOGIN RESULT UNKNOWN")
+
+
+        # Look for error messages
+        soup = BeautifulSoup(result.text, "lxml")
+
+        for msg in soup.find_all(
+            ["div", "span", "p"]
+        ):
+            text = msg.get_text(strip=True)
+
+            if "invalid" in text.lower():
+                print("Message:", text)
+
 
 
 except Exception as e:
+
     print("ERROR")
     print(e)
+
 
 
 while True:
