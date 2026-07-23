@@ -1,4 +1,4 @@
-print("VERSION TEST 1.0.24")
+print("Starting Peel Water Bill Checker VERSION 1.0.26")
 
 import os
 import re
@@ -6,8 +6,8 @@ import json
 import time
 import requests
 
-from selenium import webdriver
-from selenium.webdriver.chrome.options import Options
+from playwright.sync_api import (
+    sync_playwright,
     TimeoutError as PlaywrightTimeoutError
 )
 
@@ -22,16 +22,13 @@ LAST_FILE = "/data/last_bill.json"
 OPTIONS_FILE = "/data/options.json"
 
 
-
 def get_config():
 
     try:
-
         with open(OPTIONS_FILE, "r") as f:
             return json.load(f)
 
     except Exception as e:
-
         print("Config error:", e)
         return {}
 
@@ -47,7 +44,6 @@ PEEL_PASSWORD = CONFIG.get("peel_password")
 def notify(message):
 
     if not HA_TOKEN:
-
         print("No HA token")
         return
 
@@ -55,45 +51,38 @@ def notify(message):
     try:
 
         requests.post(
-
             f"{HA_URL}/services/notify/mobile_app_atg",
 
             headers={
-
                 "Authorization": f"Bearer {HA_TOKEN}",
-
                 "Content-Type": "application/json"
-
             },
 
             json={
-
                 "title": "💧 Peel Water Bill",
-
                 "message": message
-
             },
 
             timeout=10
-
         )
-
 
         print("Notification sent")
 
 
     except Exception as e:
-
         print("Notification error:", e)
-
 
 
 
 def save_bill(data):
 
-    with open(LAST_FILE, "w") as f:
+    try:
 
-        json.dump(data, f)
+        with open(LAST_FILE,"w") as f:
+            json.dump(data,f)
+
+    except Exception as e:
+        print("Save error:",e)
 
 
 
@@ -102,10 +91,8 @@ def load_bill():
 
     try:
 
-        with open(LAST_FILE, "r") as f:
-
+        with open(LAST_FILE,"r") as f:
             return json.load(f)
-
 
     except:
 
@@ -126,13 +113,9 @@ def login(page):
 
 
             page.goto(
-
                 PEEL_LOGIN,
-
                 wait_until="domcontentloaded",
-
                 timeout=60000
-
             )
 
 
@@ -140,11 +123,8 @@ def login(page):
 
 
             page.wait_for_selector(
-
                 "#bannerSignInUsername",
-
                 timeout=30000
-
             )
 
 
@@ -152,20 +132,14 @@ def login(page):
 
 
             page.fill(
-
                 "#bannerSignInUsername",
-
                 PEEL_EMAIL
-
             )
 
 
             page.fill(
-
                 "#bannerSignInPassword",
-
                 PEEL_PASSWORD
-
             )
 
 
@@ -178,15 +152,10 @@ def login(page):
             page.wait_for_timeout(5000)
 
 
-
             print(
-
-                "After login URL:",
-
+                "After login:",
                 page.url
-
             )
-
 
 
             if "billing" in page.url:
@@ -197,15 +166,10 @@ def login(page):
 
         except Exception as e:
 
-
             print(
-
                 f"Login attempt {attempt} failed:",
-
                 e
-
             )
-
 
             time.sleep(5)
 
@@ -216,23 +180,19 @@ def login(page):
 
 
 
+
 def extract_bill(text):
 
 
     print("Searching account activity")
 
 
-    # Remove hidden characters from website
+    text=text.replace("\xa0"," ")
 
-    text = text.replace("\xa0", " ")
-
-    text = " ".join(text.split())
+    text=" ".join(text.split())
 
 
-    print("Normalized account text")
-
-
-    matches = re.findall(
+    matches=re.findall(
 
         r"You had a bill for\s+\$([\d,]+\.\d+)\s+due on\s+([A-Za-z]+\s+\d+,\s+\d{4})",
 
@@ -243,88 +203,89 @@ def extract_bill(text):
 
     if not matches:
 
-
         print("No bill history found")
-
         return None
 
 
 
-    amount, due = matches[0]
+    amount,due=matches[0]
 
 
-    data = {
+    bill={
 
+        "amount":"$"+amount,
 
-        "amount": "$" + amount,
-
-
-        "due": due,
-
-
-        "date": ""
+        "due":due
 
     }
 
 
-    print("Bill extracted:")
-
-    print(data)
+    print("Bill found:",bill)
 
 
-    return data
+    return bill
+
+
 
 
 
 
 def check_bill():
 
-
     print("Starting bill check")
-
 
 
     if not PEEL_EMAIL or not PEEL_PASSWORD:
 
-
         print("Missing Peel credentials")
-
         return
-
 
 
 
     with sync_playwright() as p:
 
 
-
-        browser = p.chromium.launch(
-
-            headless=True
-
-        )
+        browser=None
 
 
-        page = browser.new_page()
+        try:
+
+
+            browser=p.chromium.launch(
+
+                headless=True,
+
+                executable_path="/usr/bin/chromium"
+
+            )
+
+
+        except:
+
+
+            browser=p.chromium.launch(
+
+                headless=True
+
+            )
+
+
+
+        page=browser.new_page()
 
 
 
         try:
 
 
-
             if not login(page):
 
-
                 print("Login failed")
-
                 return
 
 
 
-
             print("Opening billing home")
-
 
 
             page.goto(
@@ -338,26 +299,19 @@ def check_bill():
             )
 
 
-
-            print("Billing home loaded")
-
-
-
             print(
 
                 "Current URL:",
-
                 page.url
 
             )
-
 
 
             page.wait_for_timeout(5000)
 
 
 
-            html = page.content()
+            html=page.content()
 
 
 
@@ -375,7 +329,7 @@ def check_bill():
 
 
 
-            text = page.locator(
+            text=page.locator(
 
                 "body"
 
@@ -383,11 +337,11 @@ def check_bill():
 
 
 
-            print(text[:2000])
+            print(text[:3000])
 
 
 
-            bill = extract_bill(text)
+            bill=extract_bill(text)
 
 
 
@@ -397,26 +351,22 @@ def check_bill():
 
 
 
-
-            old = load_bill()
+            old=load_bill()
 
 
 
             if old != bill:
 
 
-
                 print("New bill detected")
-
 
 
                 save_bill(bill)
 
 
-
                 notify(
 
-                    f"New Region of Peel water bill\n\n"
+                    "New Region of Peel water bill\n\n"
 
                     f"Amount: {bill['amount']}\n"
 
@@ -425,9 +375,7 @@ def check_bill():
                 )
 
 
-
             else:
-
 
                 print("No new bill")
 
@@ -436,27 +384,13 @@ def check_bill():
 
         except PlaywrightTimeoutError as e:
 
-
-            print(
-
-                "Playwright timeout:",
-
-                e
-
-            )
+            print("Timeout:",e)
 
 
 
         except Exception as e:
 
-
-            print(
-
-                "Error:",
-
-                e
-
-            )
+            print("Error:",e)
 
 
 
@@ -468,6 +402,8 @@ def check_bill():
 
 
 
-if __name__ == "__main__":
+
+
+if __name__=="__main__":
 
     check_bill()
