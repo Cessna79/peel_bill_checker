@@ -10,10 +10,10 @@ RUN apk add --no-cache \
     chromium \
     chromium-chromedriver
 
-COPY requirements.txt /app/requirements.txt
+COPY requirements.txt /app/
 
 RUN pip3 install --no-cache-dir --break-system-packages -r /app/requirements.txt
 
 COPY app.py /app/app.py
 
-CMD ["python3", "/app/app.py"]
+CMD ["python3","/app/app.py"]
