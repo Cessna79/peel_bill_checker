@@ -5,7 +5,7 @@ import bashio
 
 print("=" * 50)
 print("Peel Water Bill Checker")
-print("Version 1.0.0")
+print("Version 1.0.1")
 print("=" * 50)
 
 
