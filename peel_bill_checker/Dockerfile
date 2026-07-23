@@ -3,13 +3,15 @@ FROM ${BUILD_FROM}
 
 WORKDIR /app
 
-COPY requirements.txt /app/
+RUN apk add --no-cache python3 py3-pip
 
-RUN python3 -m pip install --no-cache-dir -r requirements.txt
+COPY requirements.txt .
 
-COPY app.py /app/
+RUN pip3 install --no-cache-dir -r requirements.txt
 
-COPY run.sh /
+COPY app.py .
+
+COPY run.sh /run.sh
 
 RUN chmod +x /run.sh
 
