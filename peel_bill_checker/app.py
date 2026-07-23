@@ -6,13 +6,11 @@ import time
 
 print("=" * 50)
 print("Peel Water Bill Checker")
-print("Login Debug Version 1.0.5")
+print("Login Debug Version 1.0.6")
 print("=" * 50)
 
 
-OPTIONS = "/data/options.json"
-
-with open(OPTIONS) as f:
+with open("/data/options.json") as f:
     options = json.load(f)
 
 
@@ -20,26 +18,16 @@ username = options.get("email")
 password = options.get("password")
 
 
-print("Username loaded:", username)
-
-if password:
-    print("Password loaded: YES")
-else:
-    print("Password loaded: NO")
-
-
 session = requests.Session()
 
-# Act like a normal browser
+
 headers = {
     "User-Agent": (
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-        "AppleWebKit/537.36 "
-        "(KHTML, like Gecko) "
-        "Chrome/120 Safari/537.36"
+        "AppleWebKit/537.36 Chrome/120 Safari/537.36"
     ),
-    "Accept": "text/html,application/xhtml+xml,"
-              "application/xml;q=0.9,*/*;q=0.8"
+    "Referer": "https://peelregion.idoxs.ca/authentication/login",
+    "Origin": "https://peelregion.idoxs.ca"
 }
 
 
@@ -48,170 +36,85 @@ login_url = "https://peelregion.idoxs.ca/authentication/login"
 
 try:
 
-    print("\nOpening login page...")
+    print("Opening login page")
 
-    page = session.get(
+    r = session.get(
         login_url,
         headers=headers
     )
 
 
-    print("Login page status:", page.status_code)
-
-
     soup = BeautifulSoup(
-        page.text,
+        r.text,
         "lxml"
     )
-
-
-    print("\nGetting form fields:")
 
 
     form = soup.find("form")
 
 
-    login_data = {}
+    data = {}
 
 
-    if form:
-
-        for inp in form.find_all("input"):
-
-            name = inp.get("name")
-            value = inp.get("value", "")
-
-            if name:
-                print(
-                    name,
-                    "=",
-                    value[:50]
-                )
-
-                login_data[name] = value
+    print("\nAll form elements:")
 
 
-    # Add credentials
-    login_data["username"] = username
-    login_data["password"] = password
+    for element in form.find_all(
+        ["input", "button"]
+    ):
+
+        name = element.get("name")
+        value = element.get("value", "")
+
+        print(
+            element.name,
+            name,
+            value
+        )
+
+        if name:
+            data[name] = value
 
 
-    print("\nSubmitting login...")
+    data["username"] = username
+    data["password"] = password
+
+
+    print("\nSending:")
+
+    for k in data:
+        if "password" not in k.lower():
+            print(k, "=", data[k][:40])
 
 
     result = session.post(
         login_url,
-        data=login_data,
+        data=data,
         headers=headers,
-        allow_redirects=True
+        allow_redirects=False
     )
 
 
-    print("\nLogin response status:")
+    print("\nResponse:")
     print(result.status_code)
 
-
-    print("\nFinal URL:")
-    print(result.url)
-
-
-    print("\nCookies after login:")
-
-    for cookie in session.cookies:
-        print(
-            cookie.name,
-            "=",
-            cookie.value[:30],
-            "..."
-        )
-
-
-    soup = BeautifulSoup(
-        result.text,
-        "lxml"
+    print("Location header:")
+    print(
+        result.headers.get("Location")
     )
 
 
-    print("\nPage title:")
+    print("\nCookies:")
 
-    title = soup.find("title")
-
-    if title:
-        print(title.text.strip())
-
-
-    print("\nSearching for messages:")
-
-
-    found = False
-
-    for text in soup.stripped_strings:
-
-        words = [
-            "invalid",
-            "incorrect",
-            "error",
-            "failed",
-            "wrong",
-            "password",
-            "username"
-        ]
-
-        if any(
-            word in text.lower()
-            for word in words
-        ):
-
-            print("-", text)
-            found = True
-
-
-    if not found:
-        print("No error message found")
-
-
-    print("\nChecking login status:")
-
-
-    if "logout" in result.text.lower():
-
-        print("LOGIN SUCCESS")
-
-    elif "dashboard" in result.text.lower():
-
-        print("LOGIN POSSIBLY SUCCESSFUL")
-
-    else:
-
-        print("LOGIN NOT CONFIRMED")
-
-
-    print("\nForms remaining on page:")
-
-    for f in soup.find_all("form"):
-
-        print("----------------")
-        print(
-            "Action:",
-            f.get("action")
-        )
-
-        for inp in f.find_all("input"):
-
-            print(
-                inp.get("name"),
-                inp.get("type")
-            )
+    for c in session.cookies:
+        print(c.name)
 
 
 except Exception as e:
 
-    print("\nERROR OCCURRED:")
+    print("ERROR:")
     print(e)
 
-
-
-print("\nAddon running...")
 
 
 while True:
